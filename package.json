@@ -3,11 +3,20 @@
   "version": "1.0.0",
   "description": "A lightweight, extensible analytics library.",
   "main": "index.ts",
+  "browser": "./dist/library/browser/analytics.js",
+  "exports": {
+    ".": {
+      "import": "./dist/library/esm/analytics.mjs",
+      "require": "./dist/library/umd/analytics.js"
+    }
+  },
   "scripts": {
     "test": "jest --coverage=false",
-    "build:webpack": "rm -rf esm dist && webpack --mode production && tsc --emitDeclarationOnly true --outDir dist",
-    "build:webpack:watch": "rm -rf esm dist && webpack --mode production --watch"
+    "typings": "npx tsc . --emitDeclarationOnly --outDir dist",
+    "build:webpack": "rm -rf dist && webpack --mode production && tsc --emitDeclarationOnly --outDir dist/typings",
+    "build:webpack:watch": "rm -rf esm dist && tsc --emitDeclarationOnly --outDir dist/typings && webpack --mode production --watch"
   },
+  "types": "./dist/typings",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Recursive-House/analytics.git"

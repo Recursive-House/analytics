@@ -3,7 +3,9 @@ import { processQueue, Queue } from "../store/queue";
 import { RootState } from "../store/store";
 
 
-export const queueProcessorMiddleware: Middleware = <S extends RootState, D extends ThunkDispatch<S, undefined, AnyAction>>(store: MiddlewareAPI<D, S>) => (next: Dispatch) => (action: Action) => {
+export const queueProcessorMiddleware: Middleware = <S extends RootState,
+    D extends ThunkDispatch<S, undefined, AnyAction>,
+>(store: MiddlewareAPI<D, S>) => (next: Dispatch) => (action: Action) => {
     switch (action.type) {
         case Queue.processQueue:
             const queue = store.getState().queue.actions;

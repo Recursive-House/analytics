@@ -6,8 +6,8 @@ import { enqueue } from './store/queue';
 import { coreReducers } from './store/store';
 
 export interface AnalyticsConfig {
-    reducers: Reducer[];
-    plugins: Plugin[];
+    reducers?: Reducer[];
+    plugins?: Plugin[];
     debug: boolean;
 }
 
