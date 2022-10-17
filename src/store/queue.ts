@@ -2,10 +2,11 @@ import { createAction, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 export enum Queue {
     enqueue = 'enqueue',
-    processQueue = 'processQueue'
+    processQueue = 'processQueue',
+    updateQueue = 'updateQueue',
 }
 
-export const processQueue = createAction(Queue.processQueue)
+export const processQueueAction = createAction(Queue.processQueue);
 
 const queueSlice = createSlice({
     name: 'queue',
@@ -16,13 +17,16 @@ const queueSlice = createSlice({
     reducers: {
         [Queue.enqueue]: (state, action: PayloadAction<PayloadAction<any> | PayloadAction<any>[]>) => {
             if (Array.isArray(action.payload)) {
-                state.actions.concat(action.payload);
+                state.actions = [...state.actions, ...action.payload];
             } else {
                 state.actions.push(action.payload);
             }
+        },
+        [Queue.updateQueue]: (state, action: PayloadAction<PayloadAction<any>[]>) => {
+            state.actions = action.payload;
         }
     },
 })
 
-export const { enqueue } = queueSlice.actions
+export const { enqueue, updateQueue } = queueSlice.actions
 export default queueSlice.reducer;

@@ -1,23 +1,9 @@
 /* Core Analytic Events */
 
-export const CORE_EVENTS = [
+export const CORE_LIFECYLCE_EVENTS = [
     /**
-     * `bootstrap` - Fires when analytics library starts up.
-     * This is the first event fired. '.on/once' listeners are not allowed on bootstrap
-     * Plugins can attach logic to this event
-     */
-    'bootstrap',
-    /**
-     * `params` - Fires when analytics parses URL parameters
-     */
-    'params',
-    /**
-     * `campaign` - Fires if params contain "utm" parameters
-     */
-    'campaign',
-    /**
-     * `initializeStart` - Fires before 'initialize', allows for plugins to cancel loading of other plugins
-     */
+ * `initializeStart` - Fires before 'initialize', allows for plugins to cancel loading of other plugins
+ */
     'initializeStart',
     /**
      * `initialize` - Fires when analytics loads plugins
@@ -27,46 +13,6 @@ export const CORE_EVENTS = [
      * `initializeEnd` - Fires after initialize, allows for plugins to run logic after initialization methods run
      */
     'initializeEnd',
-    /**
-     * `ready` - Fires when all analytic providers are fully loaded. This waits for 'initialize' and 'loaded' to return true
-     */
-    'ready',
-    /**
-     * `resetStart` - Fires if analytic.reset() is called.
-     * Use this event to cancel reset based on a specific condition
-     */
-    'resetStart',
-    /**
-     * `reset` - Fires if analytic.reset() is called.
-     * Use this event to run custom cleanup logic (if needed)
-     */
-    'reset',
-    /**
-     * `resetEnd` - Fires after analytic.reset() is called.
-     * Use this event to run a callback after user data is reset
-     */
-    'resetEnd',
-    /******************
-     * Page Events
-     ******************/
-    /**
-     * `pageStart` - Fires before 'page' events fire.
-     *  This allows for dynamic page view cancellation based on current state of user or options passed in.
-     */
-    'pageStart',
-    /**
-     * `page` - Core analytics hook for page views.
-     *  If your plugin or integration tracks page views, this is the event to fire on.
-     */
-    'page',
-    /**
-     * `pageEnd` - Fires after all registered 'page' methods fire.
-     */
-    'pageEnd',
-    /**
-     * `pageAborted` - Fires if 'page' call is cancelled by a plugin
-     */
-    'pageAborted',
     /****************
      * Track Events
      ***************/
@@ -88,6 +34,64 @@ export const CORE_EVENTS = [
      * `trackAborted` - Fires if 'track' call is cancelled by a plugin
      */
     'trackAborted',
+    /******************
+     * Page Events
+     ******************/
+    /**
+     * `pageStart` - Fires before 'page' events fire.
+     *  This allows for dynamic page view cancellation based on current state of user or options passed in.
+     */
+    'pageStart',
+    /**
+     * `page` - Core analytics hook for page views.
+     *  If your plugin or integration tracks page views, this is the event to fire on.
+     */
+    'page',
+    /**
+     * `pageEnd` - Fires after all registered 'page' methods fire.
+     */
+    'pageEnd',
+    /**
+     * `pageAborted` - Fires if 'page' call is cancelled by a plugin
+     */
+    'pageAborted',
+];
+
+export const CORE_EVENTS = [
+    ...CORE_LIFECYLCE_EVENTS,
+    /**
+     * `bootstrap` - Fires when analytics library starts up.
+     * This is the first event fired. '.on/once' listeners are not allowed on bootstrap
+     * Plugins can attach logic to this event
+     */
+    'bootstrap',
+    /**
+     * `params` - Fires when analytics parses URL parameters
+     */
+    'params',
+    /**
+     * `campaign` - Fires if params contain "utm" parameters
+     */
+    'campaign',
+    /**
+     * `ready` - Fires when all analytic providers are fully loaded. This waits for 'initialize' and 'loaded' to return true
+     */
+    'ready',
+    /**
+     * `resetStart` - Fires if analytic.reset() is called.
+     * Use this event to cancel reset based on a specific condition
+     */
+    'resetStart',
+    /**
+     * `reset` - Fires if analytic.reset() is called.
+     * Use this event to run custom cleanup logic (if needed)
+     */
+    'reset',
+    /**
+     * `resetEnd` - Fires after analytic.reset() is called.
+     * Use this event to run a callback after user data is reset
+     */
+    'resetEnd',
     /******************
      * Identify Events
      ******************/
@@ -188,6 +192,14 @@ export const CORE_EVENTS = [
 export const EVENTS = CORE_EVENTS.reduce((acc, curr) => {
     acc[curr] = curr
     return acc
-  }, {} as { [K in (typeof CORE_EVENTS extends ReadonlyArray<infer U> ? U : never)]: string });
+}, {} as { [K in (typeof CORE_EVENTS extends ReadonlyArray<infer U> ? U : never)]: string });
 
-  export type LIFECYLCE_EVENT_KEYS = keyof typeof EVENTS;
+
+export const LIFECYLCE_EVENTS = CORE_LIFECYLCE_EVENTS.reduce((acc, curr) => {
+    acc[curr] = curr
+    return acc
+}, {} as { [K in (typeof CORE_LIFECYLCE_EVENTS extends ReadonlyArray<infer U> ? U : never)]: string });
+
+export type LIFECYLCE_EVENTS_KEYS = keyof typeof LIFECYLCE_EVENTS;
+
+export type EVENT_KEYS = keyof typeof EVENTS;

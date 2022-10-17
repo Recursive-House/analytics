@@ -1,16 +1,27 @@
 import { AnyAction, createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { EVENTS, LIFECYLCE_EVENT_KEYS } from "../core-utils";
+import { LIFECYLCE_EVENTS_KEYS } from "../core-utils";
 
 
-type LifeCycleEvent = ({ payload, config, instance }) => void;
-
-export type Plugin = { [K in LIFECYLCE_EVENT_KEYS]: LifeCycleEvent };
+export type LifeCycleEvent = ({ payload, config, instance }) => void;
+type Config = Record<string, string | object | number | unknown>;
 
 export interface PluginState {
+    name: string;
     enabled: boolean;
+    initialize: boolean;
+    config: Config;
+    loaded: (loaded: Config) => any;
+}
+
+export interface PluginReducerState extends Omit<PluginState, 'initialize' | 'loaded'> {
     initialized: boolean;
     loaded: boolean;
 }
+
+type PluginKeys = keyof PluginState;
+export type Plugin = { [K in keyof Omit<LIFECYLCE_EVENTS_KEYS, PluginKeys>]: LifeCycleEvent }
+    & PluginState;
+
 
 function isRegisterPluginEvent(
     action: AnyAction
@@ -40,27 +51,27 @@ export default function createPluginsReducer(getPlugins: () => { [key: string]: 
                 const name = getNameFromPluginEvent(action.type);
                 const plugin = getPlugins()[name];
                 if (plugin && name) {
-                    state[name] = {
-                        enabled,
+                    // state[name] = {
+                    //     enabled,
                         // set initialized to true if initialize method is missing
-                        initialized: enabled ? Boolean(!plugin.initialize) : false,
+                        // initialized: enabled ? Boolean(!plugin.initialize) : false,
                         // should call loaded function if enabled
-                        loaded: enabled ? true : false
+                        // loaded: enabled ? true : false
+                    // }
+                }
+            })
+                .addMatcher(isInitializePluginEvent, (state, action) => {
+                    const { enabled } = action.payload;
+                    const name = getNameFromPluginEvent(action.type);
+                    const plugin = getPlugins()[name];
+                    if (plugin && name) {
+                        // state[name].initialized = true;
+                        // loaded function should change loaded state
+                        // state[name].loaded = loaded
                     }
-                }
-            })
-            .addMatcher(isInitializePluginEvent, (state, action) => {
-                const { enabled } = action.payload;
-                const name = getNameFromPluginEvent(action.type);
-                const plugin = getPlugins()[name];
-                if (plugin && name) {
-                    state[name].initialized = true;
-                    // loaded function should change loaded state
-                    // state[name].loaded = loaded
-                }
 
-                
-            })
+
+                })
         }
     })
 }
