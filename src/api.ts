@@ -1,17 +1,20 @@
-import { configureStore, Reducer, createReducer, createAction, AnyAction } from '@reduxjs/toolkit';
-import { Plugin, PluginReducerState } from './store/plugins';
+import { configureStore, Reducer, createReducer, combineReducers, Store, PayloadAction } from '@reduxjs/toolkit';
+import { createCorePluginReducer, createPluginSpecificReducers } from './store/plugin.utils';
+import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer';
 import { queueProcessorMiddleware } from './plugins/queueProcessor';
 import { enqueue } from './store/queue';
-import { coreReducers } from './store/store';
 import { trackEvents } from './store/track';
-import { createCorePluginReducer } from './plugins/pluginMIddleware';
-import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer';
-import { LIFECYLCE_EVENTS } from './core-utils';
+import { Plugin, PluginProcessedState } from './store/plugin.types';
+import { coreReducers, createRegisterPluginType, initializeEvents } from './store';
+import { RootState } from './store';
 
 export interface AnalyticsInstance {
     track: (
         eventName,
         payload) => void;
+    getState: () => RootState;
+    on: Function;
+    dispatch: Function;
 }
 
 export interface AnalyticsConfig {
@@ -20,43 +23,15 @@ export interface AnalyticsConfig {
     debug: boolean;
 }
 
-export interface AllPlugins {
-    [name: string]: ReducerWithInitialState<PluginReducerState>;
+export interface PluginReducers {
+    [name: string]: ReducerWithInitialState<PluginProcessedState>;
 }
 
 export function Analytics(config: AnalyticsConfig) {
 
     let analytics: AnalyticsInstance;
-    const plugins = config.plugins || [];
-    const pluginReducers = plugins.reduce((
-        allPluginReducers: AllPlugins,
-        plugin: Plugin,
-        currentIndex: number,
-    ) => {
-        if (!plugin.name) {
-            throw new Error(`plugin does not have a name. Please enter a name for your plugin. Plugin present at index ${currentIndex}`);
-        }
-        const { name, enabled, initialize, loaded, config, ...pluginProperties } = plugin;
-        const { pluginCoreReducer, pluginInitialState } = createCorePluginReducer(plugin, analytics);
-        const pluginReducer = Object.keys(pluginProperties).reduce((reducer, pluginKey) => {
-            if (!LIFECYLCE_EVENTS[pluginKey] && plugin[pluginKey]) {
-                reducer[pluginKey] = (state: PluginReducerState, action: AnyAction) => plugin[pluginKey](
-                    {
-                        payload: action.payload,
-                        config,
-                        instance: analytics,
-                        state
-                    });
-            }
-            return reducer;
-        }, pluginCoreReducer);
-        console.log(pluginReducer);
-        allPluginReducers[name] = createReducer(pluginInitialState, pluginReducer);
-        return allPluginReducers;
-    }, {} as AllPlugins);
-
-
     analytics = {
+        ...analytics,
         track: async (eventName, payload) => {
             if (!eventName) {
                 throw new Error('event is missing in track call');
@@ -65,16 +40,77 @@ export function Analytics(config: AnalyticsConfig) {
             return store
                 .dispatch(dispatch =>
                     dispatch(enqueue(trackEvents(payload))));
+        },
+
+        on: () => ({}),
+        dispatch: () => ({}),
+
+        getState: (): RootState => {
+            const state = store.getState();
+            return { ...state };
         }
     }
 
-    const store = configureStore({
-        reducer: { ...coreReducers, ...pluginReducers },
-        middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(queueProcessorMiddleware),
+    // create store
+    const baseStore = configureStore({
+        reducer: { ...coreReducers },
+        middleware: (getDefaultMiddleware) => getDefaultMiddleware({
+            serializableCheck: false
+            
+            // {
+            //     ignoredActionPaths: [
+            //         'payload.plugin',
+            //         'payload.instance',
+            //         'payload.payload.plugin',
+            //         'payload.payload.instance'
+            //     ],
+            //     ignoredPaths: ['plugin', 'queue']
+            // }
+        }).concat(queueProcessorMiddleware),
         devTools: {
             maxAge: 1000,
         }
     });
+
+
+
+    type ExtendedEnhancedStore = typeof baseStore & {
+        enqueue: (
+            action: PayloadAction<any> | PayloadAction<any>[]
+        ) => void
+    }
+    const store: ExtendedEnhancedStore = {
+        ...baseStore,
+        enqueue: (actions: PayloadAction<any> | PayloadAction<any>[]) => {
+            store.dispatch(enqueue(actions));
+        }
+    };
+
+
+    const plugins = config.plugins || [];
+    const pluginReducers = plugins.reduce((
+        allPluginReducers: PluginReducers,
+        plugin: Plugin,
+        currentIndex: number,
+    ) => {
+        if (!plugin.name) {
+            throw new Error(`plugin does not have a name. Please enter a name for your plugin. Plugin present at index ${currentIndex}`);
+        }
+        const { pluginCoreReducer, pluginInitialState } = createCorePluginReducer(plugin, analytics);
+        const pluginSpecificReducers = createPluginSpecificReducers(plugin, analytics);
+
+        store.enqueue({
+            type: createRegisterPluginType(pluginInitialState.name),
+            payload: { plugin, instance: store }
+        });
+        const pluginReducers = { ...pluginCoreReducer, ...pluginSpecificReducers };
+        allPluginReducers[plugin.name] = createReducer(pluginInitialState, pluginReducers);
+        return allPluginReducers;
+    }, {} as PluginReducers);
+
+    // add plugin reducers after processing
+    store.replaceReducer(combineReducers({ ...pluginReducers,...coreReducers}));
+    store.enqueue(initializeEvents());
 
     return { analytics, store };
 }
