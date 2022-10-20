@@ -9,6 +9,7 @@ import { coreActions } from "./store";
 export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInstance) {
     const { name, enabled, initialize, loaded, config } = plugin;
     const pluginInitialState: PluginProcessedState = {
+        isPlugin: true,
         name,
         enabled,
         initialized: false,
@@ -18,16 +19,24 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
     const pluginCoreReducer = CORE_LIFECYLCE_EVENTS.reduce((completeReducer, event) => {
         const coreAction = coreActions[event];
         const genericPluginReducer = (state: PluginProcessedState, action: AnyAction) => {
-            console.log(action.type);
-            plugin[event]({ payload: action.payload, config, instance, state });
+            if ([
+                EVENTS.initialize,
+                EVENTS.initializeStart].includes(action.type)) {
+                plugin[event]({ payload: action.payload, config, instance, state });
+            }
+
+            console.log(state.initialized, state.enabled, action.type);
+            if (state.initialized && state.enabled) {
+                plugin[event]({ payload: action.payload, config, instance, state });
+            }
         }
 
 
         if (coreAction) {
-            if ([
+            if (initialize && [
                 EVENTS.initialize,
                 EVENTS.initializeStart,
-                EVENTS.initializeEnd].includes(coreAction.type) && initialize) {
+                EVENTS.initializeEnd].includes(coreAction.type)) {
                 const initializeEndReducer = (
                     state: PluginProcessedState,
                     action: AnyAction

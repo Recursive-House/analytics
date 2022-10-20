@@ -8,6 +8,7 @@ export interface PluginState {
     enabled: boolean;
     initialize: boolean;
     config: Config;
+    isPlugin: true;
     loaded: (loaded: Config) => Promise<any>;
 }
 

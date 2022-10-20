@@ -2,6 +2,7 @@ import { Action, AnyAction, createSlice, PayloadAction } from "@reduxjs/toolkit"
 import { Plugin, PluginProcessedState } from "./plugin.types";
 import { AnalyticsInstance, AnalyticsModule } from '../api';
 import { EVENTS } from "../core-utils";
+import { initializeEndAction } from "./store";
 
 
 export function isRegisterPluginEvent(
@@ -24,31 +25,24 @@ export function getNameFromPluginEvent(event: string) {
 
 export type PluginReducerState = {
     [name: string]: Plugin
-} & { pluginAmmount: number };
+} & { initializationFinished: boolean };
 
 const pluginSlice = createSlice({
     name: 'plugin',
     initialState: {
+        initializationFinished: false,
     } as PluginReducerState,
-    reducers: {
-        [EVENTS.initializeEnd]: (
-            state: PluginReducerState,
-            // can't use store state type definition because of crcular depenedency
-            action: PayloadAction<{ instance: AnalyticsInstance }>
-        ) => {
-            const globalState = action.payload.instance.getState();
-            console.log(globalState);
-
-
-        }
-    },
+    reducers: {},
     extraReducers: (builder) => {
         builder
+            .addCase(initializeEndAction.type, (state, action: PayloadAction<{ appState: AnalyticsInstance }>) => {
+                const { payload: { appState } } = action;
+            })
             .addMatcher(isRegisterPluginEvent, (state, action) => {
                 const { name } = action.payload.plugin;
                 state[name] = action.payload.plugin;
             })
-            // .addMatcher()
+        // .addMatcher()
     }
 })
 

@@ -1,19 +1,23 @@
 
 import { createAction } from '@reduxjs/toolkit';
+import { AnalyticsInstance } from 'src/api';
 import { EVENTS } from '../core-utils';
 import pluginReducer from './plugin';
 import queueReducer from './queue';
 import { coreReducers } from './reducers';
 import trackReducer, { track, trackEndAction, trackStartAction } from './track';
 
-const initializeStartAction = createAction(EVENTS.initializeStart);
-const initializeAction = createAction(EVENTS.initialize);
-const initializeEndAction = createAction(EVENTS.initializeEnd);
+export const initializeStartAction = createAction<AnalyticsInstance>(EVENTS.initializeStart);
+export const initializeAction = createAction<AnalyticsInstance>(EVENTS.initialize);
+export const initializeEndAction = createAction<AnalyticsInstance>(EVENTS.initializeEnd);
 
 export const initializeEvents = (payload?) => [
-    initializeStartAction(),
-    initializeAction(),
-    initializeEndAction()
+    initializeStartAction(payload),
+    initializeAction(payload),
+    (dispatch, getState) => {
+        const appState = getState();
+        dispatch(initializeEndAction({ ...payload, appState }));
+    }
 ]
 
 export const coreActions = {
@@ -25,4 +29,4 @@ export const coreActions = {
     [EVENTS.initializeEnd]: initializeEndAction,
 }
 
-export type RootState = { [ K in keyof typeof coreReducers ]: ReturnType<typeof coreReducers[K]> }
+export type RootState = { [K in keyof typeof coreReducers]: ReturnType<typeof coreReducers[K]> }
