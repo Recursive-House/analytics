@@ -25,7 +25,6 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
                 plugin[event]({ payload: action.payload, config, instance, state });
             }
 
-            console.log(state.initialized, state.enabled, action.type);
             if (state.initialized && state.enabled) {
                 plugin[event]({ payload: action.payload, config, instance, state });
             }
