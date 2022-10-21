@@ -12,7 +12,7 @@ import { EVENTS } from './core-utils';
 export interface AnalyticsInstance {
     track: (
         eventName,
-        payload) => void;
+        payload) => Promise<AnyAction>;
     getState: () => RootState;
     on: (name: string,
         callback: ({
@@ -38,6 +38,14 @@ export interface PluginReducers {
     [name: string]: ReducerWithInitialState<PluginProcessedState>;
 }
 
+
+// TODO: abort functionality
+// Debug flag implementation
+// params
+// identify events
+// storage events
+// network events
+// reset events
 export function Analytics(config: AnalyticsConfig) {
 
     const analytics: AnalyticsInstance = {
@@ -46,9 +54,9 @@ export function Analytics(config: AnalyticsConfig) {
                 throw new Error('event is missing in track call');
             }
 
-            return store
+            return Promise.resolve(store
                 .dispatch(dispatch =>
-                    dispatch(enqueue(trackEvents(payload))));
+                    dispatch(enqueue(trackEvents(payload)))));
         },
 
         on: (name: string,
@@ -63,7 +71,7 @@ export function Analytics(config: AnalyticsConfig) {
             });
         },
 
-        ready: (callback: any) => {
+        ready: (callback: ({ plugins, instance }: { plugins: Plugin[], instance: AnalyticsInstance }) => void) => {
             const readyCalled = analytics.getState().ready;
             if (readyCalled) callback({ plugins, instance: analytics });
             return analytics.on(EVENTS.ready, (x) => {
@@ -115,11 +123,16 @@ export function Analytics(config: AnalyticsConfig) {
         plugin: Plugin,
         currentIndex: number,
     ) => {
-        if (!plugin.name) {
+        const { name, bootstrap, config } = plugin;
+        if (!name) {
             throw new Error(`plugin does not have a name. Please enter a name for your plugin. Plugin present at index ${currentIndex}`);
         }
         const { pluginCoreReducer, pluginInitialState } = createCorePluginReducer(plugin, analytics);
         const pluginSpecificReducers = createPluginSpecificReducers(plugin, analytics);
+
+        if (bootstrap && typeof bootstrap === 'function') {
+            bootstrap({ instance: analytics, config, payload: plugin });
+        }
 
         store.enqueue({
             type: createRegisterPluginType(pluginInitialState.name),
