@@ -53,9 +53,9 @@ export function Analytics(config: AnalyticsConfig) {
 
         on: (name: string,
             callback: Function,
-        ) => {
+        ): Unsubscribe => {
             if (!name || !(typeof callback === 'function')) {
-                return false
+                return () => ({});
             }
             return store.subscribe(() => {
                 const action = analytics.getState().lastAction;
