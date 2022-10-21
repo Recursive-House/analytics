@@ -25,19 +25,15 @@ export function getNameFromPluginEvent(event: string) {
 
 export type PluginReducerState = {
     [name: string]: Plugin
-} & { initializationFinished: boolean };
+}
 
 const pluginSlice = createSlice({
     name: 'plugin',
     initialState: {
-        initializationFinished: false,
     } as PluginReducerState,
     reducers: {},
     extraReducers: (builder) => {
         builder
-            .addCase(initializeEndAction.type, (state, action: PayloadAction<{ appState: AnalyticsInstance }>) => {
-                const { payload: { appState } } = action;
-            })
             .addMatcher(isRegisterPluginEvent, (state, action) => {
                 const { name } = action.payload.plugin;
                 state[name] = action.payload.plugin;

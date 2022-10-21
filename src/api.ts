@@ -1,20 +1,31 @@
-import { configureStore, Reducer, createReducer, combineReducers, Store, PayloadAction } from '@reduxjs/toolkit';
+import { configureStore, Reducer, createReducer, combineReducers, Store, PayloadAction, AnyAction, Unsubscribe } from '@reduxjs/toolkit';
 import { createCorePluginReducer, createPluginSpecificReducers } from './store/plugin.utils';
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer';
 import { queueProcessorMiddleware } from './plugins/queueProcessor';
 import { enqueue } from './store/queue';
 import { trackEvents } from './store/track';
 import { Plugin, PluginProcessedState } from './store/plugin.types';
-import { coreReducers, createRegisterPluginType, initializeEvents } from './store';
+import { coreReducers, createRegisterPluginType, initializeEvents, readyAction } from './store';
 import { RootState } from './store';
+import { EVENTS } from './core-utils';
 
 export interface AnalyticsInstance {
     track: (
         eventName,
         payload) => void;
     getState: () => RootState;
-    on: Function;
+    on: (name: string,
+        callback: ({
+            payload,
+            instance,
+            plugins }: {
+                payload: AnyAction,
+                instance: AnalyticsInstance,
+                plugins: Plugin[]
+            }) => void
+    ) => Unsubscribe;
     dispatch: Function;
+    ready: (callback) => Unsubscribe;
 }
 
 export interface AnalyticsConfig {
@@ -29,9 +40,7 @@ export interface PluginReducers {
 
 export function Analytics(config: AnalyticsConfig) {
 
-    let analytics: AnalyticsInstance;
-    analytics = {
-        ...analytics,
+    const analytics: AnalyticsInstance = {
         track: async (eventName, payload) => {
             if (!eventName) {
                 throw new Error('event is missing in track call');
@@ -42,7 +51,27 @@ export function Analytics(config: AnalyticsConfig) {
                     dispatch(enqueue(trackEvents(payload))));
         },
 
-        on: () => ({}),
+        on: (name: string,
+            callback: Function,
+        ) => {
+            if (!name || !(typeof callback === 'function')) {
+                return false
+            }
+            return store.subscribe(() => {
+                const action = analytics.getState().lastAction;
+                if (action.type === name) callback({ payload: action, instance: analytics, plugins: config.plugins });
+            });
+        },
+
+        ready: (callback: any) => {
+            const readyCalled = analytics.getState().ready;
+            if (readyCalled) callback({ plugins, instance: analytics });
+            return analytics.on(EVENTS.ready, (x) => {
+                callback(x)
+                analytics.dispatch(readyAction());
+            })
+        },
+
         dispatch: () => ({}),
 
         getState: (): RootState => {
@@ -56,16 +85,6 @@ export function Analytics(config: AnalyticsConfig) {
         reducer: { ...coreReducers },
         middleware: (getDefaultMiddleware) => getDefaultMiddleware({
             serializableCheck: false
-            
-            // {
-            //     ignoredActionPaths: [
-            //         'payload.plugin',
-            //         'payload.instance',
-            //         'payload.payload.plugin',
-            //         'payload.payload.instance'
-            //     ],
-            //     ignoredPaths: ['plugin', 'queue']
-            // }
         }).concat(queueProcessorMiddleware),
         devTools: {
             maxAge: 1000,
@@ -76,12 +95,15 @@ export function Analytics(config: AnalyticsConfig) {
 
     type ExtendedEnhancedStore = typeof baseStore & {
         enqueue: (
-            action: PayloadAction<any> | PayloadAction<any>[]
+            actions: PayloadAction<any>
+                | PayloadAction<any>[]
+                | Function[]
+                | (PayloadAction<any> | Function)[]
         ) => void
     }
     const store: ExtendedEnhancedStore = {
         ...baseStore,
-        enqueue: (actions: PayloadAction<any> | PayloadAction<any>[]) => {
+        enqueue: (actions) => {
             store.dispatch(enqueue(actions));
         }
     };
@@ -109,8 +131,10 @@ export function Analytics(config: AnalyticsConfig) {
     }, {} as PluginReducers);
 
     // add plugin reducers after processing
-    store.replaceReducer(combineReducers({ ...pluginReducers,...coreReducers}));
+    store.replaceReducer(combineReducers({ ...pluginReducers, ...coreReducers }));
+
     store.enqueue(initializeEvents());
+    store.enqueue(readyAction());
 
     return { analytics, store };
 }

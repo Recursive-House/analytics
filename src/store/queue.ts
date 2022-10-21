@@ -11,18 +11,25 @@ export const processQueueAction = createAction(Queue.processQueue);
 const queueSlice = createSlice({
     name: 'queue',
     initialState: {
-        actions: [] as PayloadAction<any>[],
+        actions: [] as (Function | PayloadAction<any>)[],
 
     },
     reducers: {
-        [Queue.enqueue]: (state, action: PayloadAction<PayloadAction<any> | PayloadAction<any>[]>) => {
+        [Queue.enqueue]: (state,
+            action: PayloadAction<
+                PayloadAction<any>
+                | PayloadAction<any>[] 
+                | Function[]
+                | (PayloadAction<any> | Function)[]
+            >) => {
             if (Array.isArray(action.payload)) {
                 state.actions = [...state.actions, ...action.payload];
             } else {
                 state.actions.push(action.payload);
             }
         },
-        [Queue.updateQueue]: (state, action: PayloadAction<PayloadAction<any>[]>) => {
+        [Queue.updateQueue]: (state, action: PayloadAction<PayloadAction<any>[] | Function[]
+            | (PayloadAction<any> | Function)[]>) => {
             state.actions = action.payload;
         }
     },

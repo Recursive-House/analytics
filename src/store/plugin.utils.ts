@@ -17,7 +17,7 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
         config
     }
     const pluginCoreReducer = CORE_LIFECYLCE_EVENTS.reduce((completeReducer, event) => {
-        const coreAction = coreActions[event];
+
         const genericPluginReducer = (state: PluginProcessedState, action: AnyAction) => {
             if ([
                 EVENTS.initialize,
@@ -30,23 +30,24 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
             }
         }
 
+        const coreAction = coreActions[event];
 
         if (coreAction) {
+            const initializeEndReducer = (
+                state: PluginProcessedState,
+                action: AnyAction
+            ) => {
+                plugin[coreAction.type]({ payload: action.payload, config, instance, state });
+                state.loaded = Boolean(loaded({ config }));
+                state.initialized = true;
+            }
             if (initialize && [
                 EVENTS.initialize,
                 EVENTS.initializeStart,
                 EVENTS.initializeEnd].includes(coreAction.type)) {
-                const initializeEndReducer = (
-                    state: PluginProcessedState,
-                    action: AnyAction
-                ) => {
-                    plugin[event]({ payload: action.payload, config, instance, state });
-                    state.loaded = Boolean(loaded({ config }));
-                    state.initialized = true;
-                }
                 switch (coreAction.type) {
                     case coreActions[EVENTS.initialize].type:
-                        // initilize is a boolean key. Therefore no key here
+                        // initilize is a boolean key. Therefore no function here
                         completeReducer[`${coreAction.type}:${name}`] = genericPluginReducer;
                         break;
 
@@ -75,7 +76,7 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
 export function createPluginSpecificReducers(plugin: Plugin, instance: AnalyticsInstance) {
     const { name, enabled, initialize, loaded, config, ...pluginProperties } = plugin;
     return Object.keys(pluginProperties).reduce((reducer, property) => {
-        if (!LIFECYLCE_EVENTS[property] && plugin[property]) {
+        if (!LIFECYLCE_EVENTS[property] && typeof plugin[property] === 'function') {
             reducer[property] = (state: PluginProcessedState, action: AnyAction) => plugin[property](
                 {
                     payload: action.payload,
