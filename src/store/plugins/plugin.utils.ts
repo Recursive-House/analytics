@@ -72,10 +72,10 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
 
       const coreAction = coreActions[event];
 
-      if (coreAction && plugin[coreAction.type]) {
+      if (coreAction && plugin[event]) {
         updatePluginMethodsEvents(plugin, event);
         const initializeEndReducer = (state: PluginProcessedState = pluginInitialState, action: AnyAction) => {
-          abortabledReducer(event, state, plugin[coreAction.type], {
+          abortabledReducer(event, state, plugin[event], {
             abort,
             payload: action.payload,
             config,
@@ -106,15 +106,13 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
           return completeReducer;
         }
 
+        // console.log('got here to generic', event);
         completeReducer[coreAction.type] = genericPluginReducer;
         completeReducer[`${coreAction.type}:${plugin.name}`] = genericPluginReducer;
       }
       return completeReducer;
     },
     {} as { [K in keyof typeof CORE_LIFECYLCE_EVENTS]: CaseReducer<PluginProcessedState, Action<any>> }
-    // as {
-    //   [K in keyof typeof CORE_LIFECYLCE_EVENTS]: CaseReducer<PluginProcessedState, Action<any>>;
-    // } & { clearPluginAbortEvents: CaseReducer<PluginProcessedState, Action<any>> }
   );
 
   pluginCoreReducer[clearPluginAbortEventsAction.type] = (state) => {
