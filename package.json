@@ -14,6 +14,7 @@
     "test": "jest --coverage=false",
     "typings": "npx tsc . --emitDeclarationOnly --outDir dist",
     "build:webpack": "rm -rf dist && webpack --mode production && tsc --emitDeclarationOnly --outDir dist/typings",
+    "build:webpack:watch:dev": "rm -rf esm dist && tsc --emitDeclarationOnly --outDir dist/typings && webpack --mode development --watch",
     "build:webpack:watch": "rm -rf esm dist && tsc --emitDeclarationOnly --outDir dist/typings && webpack --mode production --watch",
     "prettier": "prettier --config .prettierrc.json 'src/**/*.ts' --write"
   },

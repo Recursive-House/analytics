@@ -1,4 +1,4 @@
-import { Action, AnyAction, CaseReducer, createAction } from '@reduxjs/toolkit';
+import { Action, AnyAction, CaseReducer, createAction, createReducer } from '@reduxjs/toolkit';
 import { AnalyticsInstance } from '../../api';
 import { CORE_LIFECYLCE_EVENTS, EVENTS, LIFECYLCE_EVENTS } from '../../core-utils';
 import { Plugin, PluginProcessedState } from './plugin.types';
@@ -7,11 +7,15 @@ import { coreActions } from '../store';
 const pluginMethods = {};
 
 export function updatePluginMethodsEvents(plugin: Plugin, event: string) {
-  pluginMethods[plugin.name] = { ...(pluginMethods[plugin.name] || {}), [event]: typeof plugin[event] === 'function'? plugin[event]: undefined };
+  pluginMethods[plugin.name] = {
+    ...(pluginMethods[plugin.name] || {})
+  };
+  if (typeof plugin[event] === 'function' && event) {
+    pluginMethods[plugin.name][event] = plugin[event];
+  }
 }
 
 export function getPluginMethods() {
-  console.log('getPluginMethods', pluginMethods);
   return pluginMethods;
 }
 export function abort(message: string) {
@@ -68,7 +72,7 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
 
       const coreAction = coreActions[event];
 
-      if (coreAction) {
+      if (coreAction && plugin[coreAction.type]) {
         updatePluginMethodsEvents(plugin, event);
         const initializeEndReducer = (state: PluginProcessedState = pluginInitialState, action: AnyAction) => {
           abortabledReducer(event, state, plugin[coreAction.type], {
@@ -80,6 +84,7 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
           state.loaded = Boolean(loaded({ config }));
           state.initialized = true;
         };
+
         if (initialize && [EVENTS.initialize, EVENTS.initializeStart, EVENTS.initializeEnd].includes(coreAction.type)) {
           switch (coreAction.type) {
             case coreActions[EVENTS.initialize].type:
@@ -130,7 +135,7 @@ export function createPluginSpecificReducers(plugin: Plugin, instance: Analytics
     config
   };
   return Object.keys(pluginProperties).reduce((reducer, property) => {
-    if (!LIFECYLCE_EVENTS[property] && typeof plugin[property] === 'function') {
+    if (!LIFECYLCE_EVENTS[property] && typeof plugin[property] === 'function' && plugin[property]) {
       updatePluginMethodsEvents(plugin, property);
       reducer[property] = (state: PluginProcessedState = pluginInitialState, action: AnyAction) => {
         abortabledReducer(property, state, plugin[property], {
@@ -144,6 +149,21 @@ export function createPluginSpecificReducers(plugin: Plugin, instance: Analytics
   }, {} as { [K in keyof typeof CORE_LIFECYLCE_EVENTS]: CaseReducer<PluginProcessedState, Action<any>> });
 }
 
+export function createAllPluginReducers(
+  plugin: Plugin,
+  analytics: AnalyticsInstance,
+  alterInitialState: PluginProcessedState = undefined
+) {
+  const { pluginCoreReducer, pluginInitialState } = createCorePluginReducer(plugin, analytics);
+  const pluginSpecificReducers = createPluginSpecificReducers(plugin, analytics);
+
+  const pluginReducers = {
+    ...pluginCoreReducer,
+    ...pluginSpecificReducers
+  };
+
+  return createReducer(alterInitialState ? alterInitialState : pluginInitialState, pluginReducers);
+}
 export function createRegisterPluginType(name: string) {
   return `registerPlugin:${name}`;
 }

@@ -34,7 +34,8 @@ const getDynConf = (target) => ({
   resolve: {
     extensions: [".js", ".ts"],
   },
-  externals: [
+  externals:
+   [
     nodeExternals({
       importType: target === "esm" ? "module" : target,
     }),
@@ -49,7 +50,7 @@ module.exports = [
       path: path.resolve(__dirname, "dist/library/browser"),
       filename: "analytics.js",
       library: {
-        name: "MwaAnalytics",
+        name: "analytics",
         type: "var",
       },
     },
@@ -61,7 +62,7 @@ module.exports = [
       path: path.resolve(__dirname, "dist/library/umd"),
       filename: "analytics.js",
       library: {
-        name: "MwaAnalytics",
+        name: "analytics",
         type: "umd",
       },
       globalObject: "this",

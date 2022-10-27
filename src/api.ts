@@ -1,18 +1,13 @@
 import {
   configureStore,
   Reducer,
-  createReducer,
   combineReducers,
   PayloadAction,
   AnyAction,
   Unsubscribe,
   Action
 } from '@reduxjs/toolkit';
-import {
-  createCorePluginReducer,
-  createPluginSpecificReducers,
-  createRegisterPluginType
-} from './store/plugins/plugin.utils';
+import { createAllPluginReducers, createRegisterPluginType } from './store/plugins/plugin.utils';
 import { CaseReducer, ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer';
 import { AbortPayload, queueProcessorMiddleware } from './plugins/queueProcessor';
 import { trackEvents } from './store/track';
@@ -30,7 +25,7 @@ import {
 
 // import { abortSensitiveQueue } from './store/queue';
 import { CORE_LIFECYLCE_EVENTS, EVENTS } from './core-utils';
-import { abortSensitiveQueue, getAbortedReducers, replaceAbortedReducer } from './store/queue.utils';
+import { abortSensitiveQueue, getAbortedReducers } from './store/queue.utils';
 
 export interface AnalyticsInstance {
   track: (eventName, payload) => void; //Promise<AnyAction>;
@@ -114,23 +109,19 @@ export function Analytics(config: AnalyticsConfig) {
 
     abortEvent: (action: PayloadAction<AbortPayload>) => {
       const abortedReducersMap = getAbortedReducers(new Set([action.payload.pluginEvent]));
+      console.log('got aborted events', abortedReducersMap);
       const analyticsState = store.getState();
-      console.log('get states during abort event', analyticsState);
       const pluginStates = Object.keys(abortedReducersMap).reduce(
         (allPluginStates, pluginName) => ((allPluginStates[pluginName] = analyticsState[pluginName]), allPluginStates),
         {}
       );
-      console.log('abortedReducers', abortedReducersMap);
-      const pluginReducers = Object.keys(abortedReducersMap).reduce(
-        (result, key) => (
-          console.log('plugin state', key, pluginStates[key]),
-          (result[key] = createReducer(pluginStates[key], abortedReducersMap[key])),
-          result
-        ),
-        {}
-      );
+      const pluginReducers = Object.keys(abortedReducersMap).reduce((result, key) => {
+        result[key] = createAllPluginReducers(abortedReducersMap[key], analytics, pluginStates[key]);
+        return result;
+      }, {});
+      console.log('pluginReducers', pluginReducers, getReducerStore());
+      console.log('resulting reducer store', { ...getReducerStore(), ...pluginReducers });
       if (Object.keys(abortedReducersMap).length) {
-        console.log('pluginReducers', pluginReducers, getReducerStore());
         store.replaceReducer(combineReducers({ ...getReducerStore(), ...pluginReducers }));
       }
     },
@@ -153,8 +144,9 @@ export function Analytics(config: AnalyticsConfig) {
         serializableCheck: false
       }).concat(queueProcessorMiddleware),
     devTools: {
-      maxAge: 1000
-    }
+      maxAge: 1000,
+      shouldHotReload: false
+    },
   });
 
   const store = {
@@ -172,35 +164,25 @@ export function Analytics(config: AnalyticsConfig) {
         `plugin does not have a name. Please enter a name for your plugin. Plugin present at index ${currentIndex}`
       );
     }
-    const { pluginCoreReducer, pluginInitialState } = createCorePluginReducer(plugin, analytics);
-    const pluginSpecificReducers = createPluginSpecificReducers(plugin, analytics);
-
     if (bootstrap && typeof bootstrap === 'function') {
       bootstrap({ instance: analytics, config, payload: plugin });
     }
 
+    allPluginReducers[plugin.name] = createAllPluginReducers(plugin, analytics);
+
     store.enqueue({
-      type: createRegisterPluginType(pluginInitialState.name),
+      type: createRegisterPluginType(plugin.name),
       payload: { plugin, instance: store }
     });
 
-    const pluginReducers = {
-      ...pluginCoreReducer,
-      ...pluginSpecificReducers
-    };
-    allPluginReducers[plugin.name] = createReducer(pluginInitialState, pluginReducers);
     return allPluginReducers;
-  }, {}  as { [key: string]: ReducerWithInitialState<PluginProcessedState> });
+  }, {} as { [key: string]: ReducerWithInitialState<PluginProcessedState> });
 
-  console.log('pluginReducerssss', pluginReducers);
   const reducers = { ...pluginReducers, ...coreReducers };
 
   updateReducerStore(reducers);
-
-  console.log('initial reducers', getReducerStore());
   // add plugin reducers after processing
   store.replaceReducer(combineReducers(getReducerStore()));
-  console.log('store', store.getState());
   store.dispatch(store.enqueue(initializeEvents()));
   store.dispatch(store.enqueue(readyAction()));
 
