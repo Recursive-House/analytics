@@ -14,7 +14,8 @@
     "test": "jest --coverage=false",
     "typings": "npx tsc . --emitDeclarationOnly --outDir dist",
     "build:webpack": "rm -rf dist && webpack --mode production && tsc --emitDeclarationOnly --outDir dist/typings",
-    "build:webpack:watch": "rm -rf esm dist && tsc --emitDeclarationOnly --outDir dist/typings && webpack --mode production --watch"
+    "build:webpack:watch": "rm -rf esm dist && tsc --emitDeclarationOnly --outDir dist/typings && webpack --mode production --watch",
+    "prettier": "prettier --config .prettierrc.json 'src/**/*.ts' --write"
   },
   "types": "./dist/typings",
   "repository": {
@@ -42,6 +43,7 @@
   "devDependencies": {
     "@swc/core": "^1.3.4",
     "@types/jest": "^29.1.1",
+    "prettier": "2.7.1",
     "swc-loader": "^0.2.3",
     "ts-jest": "^29.0.3",
     "webpack": "^5.74.0",
