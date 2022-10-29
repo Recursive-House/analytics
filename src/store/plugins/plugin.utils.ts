@@ -8,7 +8,6 @@ export const pluginMethods = {};
 
 export const createPluginState = (name: string, enabled: boolean, config) =>
   ({
-    isPlugin: true,
     name,
     enabled,
     initialized: false,

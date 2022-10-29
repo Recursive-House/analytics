@@ -55,7 +55,7 @@ export const CORE_LIFECYLCE_EVENTS = [
    * `pageAborted` - Fires if 'page' call is cancelled by a plugin
    */
   'pageAborted'
-];
+] as const;
 
 export const CORE_EVENTS = [
   ...CORE_LIFECYLCE_EVENTS,

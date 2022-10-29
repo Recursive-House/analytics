@@ -1,8 +1,10 @@
 import { AnalyticsInstance } from '../../api';
 import { LIFECYLCE_EVENTS_KEYS } from '../../core-utils';
-import { abort } from './plugin.utils';
 
-export type LifeCycleEvent = ({ payload, config, instance }) => ReturnType<typeof abort>;
+export type LifeCycleEvent = ({ payload, config, instance }) => ({
+  abort: boolean;
+  message: string;
+}) | void;
 export type Config = Record<string, string | object | number | unknown>;
 
 export interface PluginState {
@@ -10,7 +12,6 @@ export interface PluginState {
   enabled: boolean;
   initialize: boolean;
   config: Config;
-  isPlugin: true;
   bootstrap?: ({ instance, config, payload }: { instance: AnalyticsInstance; config: Config; payload: Plugin }) => void;
   loaded: (loaded: Config) => any;
 }
@@ -21,6 +22,14 @@ export interface PluginProcessedState extends Omit<PluginState, 'initialize' | '
   abortableEvents: Record<string, boolean>;
 }
 
+export type PluginKeys = Exclude<LIFECYLCE_EVENTS_KEYS, keyof PluginState>;
+
 export type Plugin = {
-  [K in keyof Omit<LIFECYLCE_EVENTS_KEYS, keyof PluginState>]: LifeCycleEvent;
+  [K in PluginKeys]: LifeCycleEvent extends Function
+    ? LifeCycleEvent
+    : LifeCycleEvent extends string
+    ? string
+    : LifeCycleEvent extends number
+    ? number
+    : unknown;
 } & PluginState;

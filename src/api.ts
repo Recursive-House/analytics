@@ -79,8 +79,8 @@ export function Analytics(config: AnalyticsConfig) {
     },
 
     on: (name: string, callback: Function): Unsubscribe => {
-      if (!name || !(typeof callback === 'function')) {
-        return () => ({});
+      if (!name || (typeof callback !== 'function')) {
+        throw new TypeError(`name or callback but on feature invalid name: ${name}, callback: ${callback}`);
       }
       return store.subscribe(() => {
         const action = analytics.getState().lastAction;
@@ -95,7 +95,10 @@ export function Analytics(config: AnalyticsConfig) {
 
     ready: (callback: ({ plugins, instance }: { plugins: Plugin[]; instance: AnalyticsInstance }) => void) => {
       const readyCalled = analytics.getState().ready;
-      if (readyCalled) callback({ plugins, instance: analytics });
+      if (readyCalled) {
+        callback({ plugins, instance: analytics });
+        return;
+      }
       return analytics.on(EVENTS.ready, (x) => {
         callback(x);
         analytics.dispatch(readyAction());

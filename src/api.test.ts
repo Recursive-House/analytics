@@ -1,7 +1,6 @@
 import { Analytics } from './api';
 
 describe('async api is', () => {
-
   let analyticsInstance;
   let storeInstance;
 
@@ -11,7 +10,7 @@ describe('async api is', () => {
       plugins: [],
       debug: false
     });
-    
+
     analyticsInstance = analytics;
     storeInstance = store;
   });
@@ -26,8 +25,23 @@ describe('async api is', () => {
   });
 
   describe('track', () => {
-    it('shouldn\'t allow track called with valid event', async () => {
+    it("shouldn't allow track called with valid event", async () => {
       await expect(() => analyticsInstance.track('')).rejects.toThrow(TypeError);
-    }) 
+    });
+  });
+
+  describe('on', () => {
+    it("shouldn't allow invalid name or callback function", () => {
+      expect(() => analyticsInstance.on('', 'callback')).toThrow(TypeError);
+    });
+  });
+
+  describe('ready', () => {
+    it("shouldn't allow a callback to be registered in the on event", () => {
+      storeInstance.getState = () => ({ ready: true });
+      const onSpy = jest.spyOn(analyticsInstance, 'on');
+      analyticsInstance.ready(() => ({}));
+      expect(onSpy).not.toHaveBeenCalled();
+    });
   });
 });

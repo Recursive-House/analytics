@@ -10,7 +10,6 @@ import {
 } from './plugin.utils';
 
 const PLUGIN_STATE = {
-  isPlugin: true,
   name: 'sample-plugin',
   enabled: true,
   initialized: false,
