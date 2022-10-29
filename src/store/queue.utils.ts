@@ -1,27 +1,20 @@
-import {
-  Action,
-  AnyAction,
-  CaseReducer,
-  CaseReducers,
-  combineReducers,
-  EnhancedStore,
-  PayloadAction,
-  ReducersMapObject
-} from '@reduxjs/toolkit';
-import { abortAction, AbortPayload } from '../plugins/queueProcessor';
+import { Action, CaseReducer, combineReducers, EnhancedStore } from '@reduxjs/toolkit';
+import { abortAction } from '../plugins/queueProcessor';
 import { clearPluginAbortEventsAction, getPluginMethods } from './plugins';
 import { enqueue, QueueAction } from './queue';
-import { CORE_REDUCER_KEYS, getReducerStore } from './reducers';
+import { CORE_REDUCER_KEYS } from './reducers';
+import { RootState } from './store';
 
-export function collectAbortedEvents(globalState: any) {
+export function collectAbortedEvents(globalState: RootState) {
   const abortableEventStates = Object.keys(globalState).reduce((pluginAbortState, stateKey) => {
     if (CORE_REDUCER_KEYS[stateKey]) {
       return pluginAbortState;
     }
-    return (pluginAbortState[stateKey] = globalState[stateKey].abortableEvents, pluginAbortState);
+    return (pluginAbortState[stateKey] = globalState[stateKey].abortableEvents ? globalState[stateKey].abortableEvents: {}), pluginAbortState;
   }, {});
+  
   return new Set(
-    ...Object.keys(abortableEventStates).map((pluginState) => Object.keys(abortableEventStates[pluginState]))
+    ...Object.keys(abortableEventStates).map((pluginStateKey) => Object.keys(abortableEventStates[pluginStateKey]))
   );
 }
 

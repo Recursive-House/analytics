@@ -14,7 +14,6 @@ import { trackEvents } from './store/track';
 import { Plugin, PluginProcessedState } from './store/plugins/plugin.types';
 import {
   coreReducers,
-  // createRegisterPluginType,
   initializeEvents,
   readyAction,
   updateReducerStore,
@@ -22,8 +21,6 @@ import {
   QueueAction,
   RootState
 } from './store';
-
-// import { abortSensitiveQueue } from './store/queue';
 import { CORE_LIFECYLCE_EVENTS, EVENTS } from './core-utils';
 import { abortSensitiveQueue, getAbortedReducers } from './store/queue.utils';
 
@@ -71,7 +68,7 @@ export function Analytics(config: AnalyticsConfig) {
   const analytics: AnalyticsInstance = {
     track: async (eventName, payload) => {
       if (!eventName) {
-        throw new Error('event is missing in track call');
+        throw new TypeError('event is missing in track call');
       }
 
       return Promise.resolve(
@@ -109,7 +106,6 @@ export function Analytics(config: AnalyticsConfig) {
 
     abortEvent: (action: PayloadAction<AbortPayload>) => {
       const abortedReducersMap = getAbortedReducers(new Set([action.payload.pluginEvent]));
-      console.log('got aborted events', abortedReducersMap);
       const analyticsState = store.getState();
       const pluginStates = Object.keys(abortedReducersMap).reduce(
         (allPluginStates, pluginName) => ((allPluginStates[pluginName] = analyticsState[pluginName]), allPluginStates),
@@ -119,8 +115,6 @@ export function Analytics(config: AnalyticsConfig) {
         result[key] = createAllPluginReducers(abortedReducersMap[key], analytics, pluginStates[key]);
         return result;
       }, {});
-      console.log('pluginReducers', pluginReducers, getReducerStore());
-      console.log('resulting reducer store', { ...getReducerStore(), ...pluginReducers });
       if (Object.keys(abortedReducersMap).length) {
         store.replaceReducer(combineReducers({ ...getReducerStore(), ...pluginReducers }));
       }
@@ -146,7 +140,7 @@ export function Analytics(config: AnalyticsConfig) {
     devTools: {
       maxAge: 1000,
       shouldHotReload: false
-    },
+    }
   });
 
   const store = {

@@ -33,7 +33,6 @@ const pluginSlice = createSlice({
       const { name } = action.payload.plugin;
       state[name] = action.payload.plugin;
     });
-    // .addMatcher()
   }
 });
 

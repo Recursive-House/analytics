@@ -3,7 +3,7 @@ import { LIFECYLCE_EVENTS_KEYS } from '../../core-utils';
 import { abort } from './plugin.utils';
 
 export type LifeCycleEvent = ({ payload, config, instance }) => ReturnType<typeof abort>;
-type Config = Record<string, string | object | number | unknown>;
+export type Config = Record<string, string | object | number | unknown>;
 
 export interface PluginState {
   name: string;

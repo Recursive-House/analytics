@@ -1,5 +1,4 @@
-import { createAction, Reducer, ReducersMapObject } from '@reduxjs/toolkit';
-import { AbortPayload } from '../plugins/queueProcessor';
+import { createAction } from '@reduxjs/toolkit';
 import { EVENTS } from '../core-utils';
 import pluginReducer from './plugins/plugin';
 import queueReducer from './queue';
