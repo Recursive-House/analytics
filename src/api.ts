@@ -7,7 +7,7 @@ import {
   Unsubscribe,
   Action
 } from '@reduxjs/toolkit';
-import { createAllPluginReducers, createRegisterPluginType } from './store/plugins/plugin.utils';
+import { clearPluginAbortEventsAction, createAllPluginReducers, createRegisterPluginType } from './store/plugins/plugin.utils';
 import { CaseReducer, ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer';
 import { AbortPayload, queueProcessorMiddleware } from './plugins/queueProcessor';
 import { trackEvents } from './store/track';
@@ -22,10 +22,16 @@ import {
   RootState
 } from './store';
 import { CORE_LIFECYLCE_EVENTS, EVENTS } from './core-utils';
-import { abortSensitiveQueue, getAbortedReducers } from './store/queue.utils';
+import {
+  abortSensitiveQueue,
+  collectAbortedEvents,
+  getAbortedReducers,
+  getAbortedPluginReducers,
+  replaceAbortedReducer
+} from './store/queue.utils';
 
 export interface AnalyticsInstance {
-  track: (eventName, payload) => void; //Promise<AnyAction>;
+  track: (eventName, payload) => void;
   getState: () => RootState;
   on: (
     name: string,
@@ -79,7 +85,7 @@ export function Analytics(config: AnalyticsConfig) {
     },
 
     on: (name: string, callback: Function): Unsubscribe => {
-      if (!name || (typeof callback !== 'function')) {
+      if (!name || typeof callback !== 'function') {
         throw new TypeError(`name or callback but on feature invalid name: ${name}, callback: ${callback}`);
       }
       return store.subscribe(() => {
@@ -108,19 +114,10 @@ export function Analytics(config: AnalyticsConfig) {
     dispatch: () => ({}),
 
     abortEvent: (action: PayloadAction<AbortPayload>) => {
-      const abortedReducersMap = getAbortedReducers(new Set([action.payload.pluginEvent]));
-      const analyticsState = store.getState();
-      const pluginStates = Object.keys(abortedReducersMap).reduce(
-        (allPluginStates, pluginName) => ((allPluginStates[pluginName] = analyticsState[pluginName]), allPluginStates),
-        {}
-      );
-      const pluginReducers = Object.keys(abortedReducersMap).reduce((result, key) => {
-        result[key] = createAllPluginReducers(abortedReducersMap[key], analytics, pluginStates[key]);
-        return result;
-      }, {});
-      if (Object.keys(abortedReducersMap).length) {
-        store.replaceReducer(combineReducers({ ...getReducerStore(), ...pluginReducers }));
-      }
+      if (!action.payload.pluginEvent) throw new Error('pluginEvent passed is not defined');
+      const pluginReducers = getAbortedPluginReducers(store, analytics, new Set([action.payload.pluginEvent]));
+      store.replaceReducer(combineReducers({ ...getReducerStore(), ...pluginReducers }));
+      store.dispatch(clearPluginAbortEventsAction());
     },
 
     enqueue: (action: QueueAction) => {
@@ -149,11 +146,14 @@ export function Analytics(config: AnalyticsConfig) {
   const store = {
     ...baseStore,
     enqueue: (actions) => {
-      return abortSensitiveQueue(store as any)(actions);
+      return abortSensitiveQueue(store as any, analytics)(actions);
     }
   };
 
   const plugins = config.plugins || [];
+
+  // check if plugins are unique
+
   const pluginReducers = plugins.reduce((allPluginReducers, plugin: Plugin, currentIndex: number) => {
     const { name, bootstrap, config } = plugin;
     if (!name) {

@@ -15,7 +15,9 @@ export const createPluginState = (name: string, enabled: boolean, config) =>
     loaded: false,
     config
   } as PluginProcessedState);
+
 export function updatePluginMethodsEvents(plugin: Plugin, event: string) {
+
   if (typeof plugin.name !== 'string' || typeof event !== 'string' || !event) {
     throw new TypeError(`plugin method update as invalid plugin or event ${plugin.name}`);
   }
@@ -44,25 +46,48 @@ export function abort(abortWasCalled: { value: boolean }) {
 
 export const clearPluginAbortEventsAction = createAction('clearAbortableEvents');
 
+
+
+
+/**
+ * A a plugin lifecycle event will remove all plugin lifecycle events from analytics
+ * after the currect lifeycle is over, and before the next lifecycle starts
+ */
+/**
+ A a plugin lifecycle event will remove all plugin lifecycle events from analytics
+ * after the currect lifeycle is over, and before the next lifecycle starts. The actual
+ * removal is triggered by the next event called after this lifecycle is over, and no triggered
+ * by the end of the lifecycle
+ * @param event
+ * @param state 
+ * @param reducer 
+ * @param reducerOptions 
+ */
 export function abortableReducer(event: string, state, reducer, reducerOptions) {
   if (typeof reducer !== 'function') {
     throw new TypeError(`reducer ${reducer} is not a valid function`);
   }
 
-  let wasAbortable = {
+  let wasAborted = {
     value: false
   };
-  const wasAborted = reducer({ ...reducerOptions, abort: abort(wasAbortable) });
+  const abortedResult = reducer({ ...reducerOptions, abort: abort(wasAborted) });
 
-  if (wasAbortable.value) {
-    throw new Error('abort was called but not not returned. Please call abort in order to facilitate it');
+  if (wasAborted.value && !abortedResult.abort) {
+    throw new Error('abort was called but not returned. Please call abort in order to facilitate it');
   }
 
-  if (wasAborted && wasAborted.abort) {
+  if (abortedResult && abortedResult.abort) {
     state.abortableEvents[event] = true;
   }
 }
 
+/**
+ * 
+ * @param plugin the plugin who's redcuers the function will create
+ * @param instance The analytics instance the plugin will be hoisted onto
+ * @returns the plugin reducer in an object and the initial state of the plugin
+ */
 export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInstance) {
   const { name, enabled, initialize, loaded, config } = plugin;
   const pluginInitialState = createPluginState(name, enabled, config);

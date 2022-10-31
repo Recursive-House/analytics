@@ -1,8 +1,9 @@
 import { Action, CaseReducer, combineReducers, EnhancedStore } from '@reduxjs/toolkit';
+import { AnalyticsInstance } from 'src/api';
 import { abortAction } from '../plugins/queueProcessor';
-import { clearPluginAbortEventsAction, getPluginMethods } from './plugins';
+import { clearPluginAbortEventsAction, createAllPluginReducers, getPluginMethods } from './plugins';
 import { enqueue, QueueAction } from './queue';
-import { CORE_REDUCER_KEYS } from './reducers';
+import { CORE_REDUCER_KEYS, getReducerStore } from './reducers';
 import { RootState } from './store';
 
 export function collectAbortedEvents(globalState: RootState) {
@@ -10,9 +11,12 @@ export function collectAbortedEvents(globalState: RootState) {
     if (CORE_REDUCER_KEYS[stateKey]) {
       return pluginAbortState;
     }
-    return (pluginAbortState[stateKey] = globalState[stateKey].abortableEvents ? globalState[stateKey].abortableEvents: {}), pluginAbortState;
+    return (
+      (pluginAbortState[stateKey] = globalState[stateKey].abortableEvents ? globalState[stateKey].abortableEvents : {}),
+      pluginAbortState
+    );
   }, {});
-  
+
   return new Set(
     ...Object.keys(abortableEventStates).map((pluginStateKey) => Object.keys(abortableEventStates[pluginStateKey]))
   );
@@ -29,6 +33,7 @@ export function getAbortedReducers<S, AS extends Action>(collectedAbortedEvents:
         if (!reducer[abortedEvent]) {
           new Error(`${abortedEvent} does not exist in ${key} reducer`);
         }
+        console.log('about to delete', abortedEvent);
         delete reducer[abortedEvent];
       });
       result[key] = reducer;
@@ -40,19 +45,36 @@ export function getAbortedReducers<S, AS extends Action>(collectedAbortedEvents:
   );
 }
 
-export function replaceAbortedReducer(store: EnhancedStore<any, any, any>) {
+export function getAbortedPluginReducers(
+  store: EnhancedStore<any, any, any>,
+  analytics: AnalyticsInstance,
+  collectedAbortedEvents: Set<string>
+) {
+  const abortedReducersMap = getAbortedReducers(collectedAbortedEvents);
+  const analyticsState = store.getState();
+  const pluginStates = Object.keys(abortedReducersMap).reduce(
+    (allPluginStates, pluginName) => ((allPluginStates[pluginName] = analyticsState[pluginName]), allPluginStates),
+    {}
+  );
+  return Object.keys(abortedReducersMap).reduce((result, key) => {
+    result[key] = createAllPluginReducers({ ...abortedReducersMap[key], name: key }, analytics, pluginStates[key]);
+    return result;
+  }, {});
+}
+
+export function replaceAbortedReducer(store: EnhancedStore<any, any, any>, analytics: AnalyticsInstance) {
   const collectedAbortedEvents = collectAbortedEvents(store.getState());
   if (collectedAbortedEvents.size) {
-    const reducersAfterAbortProcessing = getAbortedReducers(collectedAbortedEvents);
+    const pluginReducers = getAbortedPluginReducers(store, analytics, collectedAbortedEvents);
+    store.replaceReducer(combineReducers({ ...getReducerStore(), ...pluginReducers }));
     store.dispatch(clearPluginAbortEventsAction());
-    store.replaceReducer(combineReducers(reducersAfterAbortProcessing));
   }
 }
 
-export function abortSensitiveQueue(store: EnhancedStore<any, any, any>) {
+export function abortSensitiveQueue(store: EnhancedStore<any, any, any>, analytics: AnalyticsInstance) {
   return (actions: QueueAction) => {
     if (Array.isArray(actions) || typeof actions === 'function') {
-      replaceAbortedReducer(store);
+      replaceAbortedReducer(store, analytics);
       return enqueue(actions);
     }
 
@@ -60,7 +82,7 @@ export function abortSensitiveQueue(store: EnhancedStore<any, any, any>) {
       case abortAction.type:
         return enqueue(actions);
       default:
-        replaceAbortedReducer(store);
+        replaceAbortedReducer(store, analytics);
         return enqueue(actions);
     }
   };

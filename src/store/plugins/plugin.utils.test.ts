@@ -1,7 +1,5 @@
 import { AnalyticsInstance } from '../../api';
 import {
-  pluginMethods,
-  abort,
   updatePluginMethodsEvents,
   abortableReducer,
   createCorePluginReducer,
@@ -71,6 +69,26 @@ describe('plugin.utils.ts', () => {
           })
         ).toThrow(Error);
       });
+
+      // it('should trigger abort value call then have ', () => {
+      //   const state = {
+      //     ...PLUGIN_STATE,
+      //     abortableEvents: {}
+      //   };
+
+      //   const sampleReducer = ({ abort }) => {
+      //       abort();
+      //       return;
+      //   }
+  
+      //   expect(() =>
+      //     abortableReducer('track', state, sampleReducer, {
+      //       payload: {},
+      //       config: {},
+      //       instance: {}
+      //     })
+      //   ).toThrow(Error);
+      // });
   });
 
   describe('pluginMethods', () => {

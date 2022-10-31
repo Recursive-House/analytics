@@ -22,10 +22,8 @@ export interface PluginProcessedState extends Omit<PluginState, 'initialize' | '
   abortableEvents: Record<string, boolean>;
 }
 
-export type PluginKeys = Exclude<LIFECYLCE_EVENTS_KEYS, keyof PluginState>;
-
 export type Plugin = {
-  [K in PluginKeys]: LifeCycleEvent extends Function
+  [K in Exclude<LIFECYLCE_EVENTS_KEYS, keyof PluginState>]: LifeCycleEvent extends Function
     ? LifeCycleEvent
     : LifeCycleEvent extends string
     ? string

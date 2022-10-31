@@ -29,7 +29,8 @@ export const queueProcessorMiddleware: Middleware =
   ) =>
   (next: Dispatch) =>
   (action: PayloadAction<any>) => {
-    const queue = store.getState().queue.actions;
+    const state = store.getState();
+    const queue = state.queue.actions;
     switch (action.type) {
       case processQueueAction.type:
         if (queue.length) {
