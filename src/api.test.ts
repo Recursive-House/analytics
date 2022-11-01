@@ -28,6 +28,27 @@ describe('async api is', () => {
     it("shouldn't allow track called with valid event", async () => {
       await expect(() => analyticsInstance.track('')).rejects.toThrow(TypeError);
     });
+
+    it("shouldn't allow track call with disabled plugin in simple event call to fire", async () => {
+      const samplePlugin = {
+        name: 'samplePlugin',
+        track: () => {
+          console.warn('debugger track called');
+        }
+      } as any;
+
+      const pluginTrackSpy = jest.spyOn(samplePlugin, 'track');
+
+      analyticsInstance = Analytics({
+        reducers: [],
+        plugins: [samplePlugin],
+        debug: false
+      }).analytics;
+      await analyticsInstance.track('event', 'payload of sample event', {
+        samplePlugins: true
+      })
+      await expect(pluginTrackSpy).not.toBeCalled();
+    });
   });
 
   describe('on', () => {

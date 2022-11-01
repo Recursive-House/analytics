@@ -33,7 +33,6 @@ export function getAbortedReducers<S, AS extends Action>(collectedAbortedEvents:
         if (!reducer[abortedEvent]) {
           new Error(`${abortedEvent} does not exist in ${key} reducer`);
         }
-        console.log('about to delete', abortedEvent);
         delete reducer[abortedEvent];
       });
       result[key] = reducer;

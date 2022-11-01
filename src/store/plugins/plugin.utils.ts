@@ -1,4 +1,4 @@
-import { Action, AnyAction, CaseReducer, createAction, createReducer } from '@reduxjs/toolkit';
+import { Action, AnyAction, CaseReducer, createAction, createReducer, PayloadAction } from '@reduxjs/toolkit';
 import { AnalyticsInstance } from '../../api';
 import { CORE_LIFECYLCE_EVENTS, EVENTS, LIFECYLCE_EVENTS } from '../../core-utils';
 import { Config, Plugin, PluginProcessedState } from './plugin.types';
@@ -17,7 +17,6 @@ export const createPluginState = (name: string, enabled: boolean, config) =>
   } as PluginProcessedState);
 
 export function updatePluginMethodsEvents(plugin: Plugin, event: string) {
-
   if (typeof plugin.name !== 'string' || typeof event !== 'string' || !event) {
     throw new TypeError(`plugin method update as invalid plugin or event ${plugin.name}`);
   }
@@ -45,9 +44,6 @@ export function abort(abortWasCalled: { value: boolean }) {
 }
 
 export const clearPluginAbortEventsAction = createAction('clearAbortableEvents');
-
-
-
 
 /**
  * A a plugin lifecycle event will remove all plugin lifecycle events from analytics
@@ -82,8 +78,22 @@ export function abortableReducer(event: string, state, reducer, reducerOptions) 
   }
 }
 
+const getDisabledPluginEvents = (action: PayloadAction<{ options: { disabledPlugins: Record<string, boolean> } }>) => {
+  if (!Boolean(action.payload && action.payload.options)) {
+    return [];
+  }
+  return action.payload.options.disabledPlugins
+    ? Object.entries(action.payload.options.disabledPlugins).reduce((disabledPlugins, [key, value]) => {
+        if (value) {
+          disabledPlugins.push(key);
+        }
+        return disabledPlugins;
+      }, [])
+    : [];
+};
+
 /**
- * 
+ *
  * @param plugin the plugin who's redcuers the function will create
  * @param instance The analytics instance the plugin will be hoisted onto
  * @returns the plugin reducer in an object and the initial state of the plugin
@@ -92,7 +102,7 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
   const { name, enabled, initialize, loaded, config } = plugin;
   const pluginInitialState = createPluginState(name, enabled, config);
   const pluginCoreReducer = CORE_LIFECYLCE_EVENTS.reduce((completeReducer, event) => {
-    const genericPluginReducer = (state: PluginProcessedState = pluginInitialState, action: AnyAction) => {
+    const genericPluginReducer = (state: PluginProcessedState = pluginInitialState, action: PayloadAction<any>) => {
       if ([EVENTS.initialize, EVENTS.initializeStart].includes(action.type)) {
         updatePluginMethodsEvents(plugin, event);
         abortableReducer(event, state, plugin[event], {
@@ -102,7 +112,9 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
         });
       }
 
-      if (state.initialized && state.enabled) {
+      const disabledPluginsOnSingleEventCall = getDisabledPluginEvents(action);
+
+      if (state.initialized && state.enabled && !disabledPluginsOnSingleEventCall.includes(name)) {
         updatePluginMethodsEvents(plugin, event);
         abortableReducer(event, state, plugin[event], {
           payload: action.payload,
@@ -166,12 +178,17 @@ export function createPluginSpecificReducers(plugin: Plugin, instance: Analytics
   return Object.keys(pluginProperties).reduce((reducer, property) => {
     if (!LIFECYLCE_EVENTS[property] && typeof plugin[property] === 'function' && plugin[property]) {
       updatePluginMethodsEvents(plugin, property);
-      reducer[property] = (state: PluginProcessedState = pluginInitialState, action: AnyAction) => {
-        abortableReducer(property, state, plugin[property], {
-          payload: action.payload,
-          config,
-          instance
-        });
+
+      reducer[property] = (state: PluginProcessedState = pluginInitialState, action: PayloadAction<any>) => {
+        const disabledPluginsOnSingleEventCall = getDisabledPluginEvents(action);
+        console.log('disabledPluginsOnSingleEventCall', disabledPluginsOnSingleEventCall);
+        if (!disabledPluginsOnSingleEventCall.includes(name)) {
+          abortableReducer(property, state, plugin[property], {
+            payload: action.payload,
+            config,
+            instance
+          });
+        }
       };
     }
     return reducer;

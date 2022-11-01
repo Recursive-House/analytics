@@ -19,19 +19,17 @@ import {
   updateReducerStore,
   getReducerStore,
   QueueAction,
-  RootState
+  RootState,
+  TrackPayload
 } from './store';
 import { CORE_LIFECYLCE_EVENTS, EVENTS } from './core-utils';
 import {
   abortSensitiveQueue,
-  collectAbortedEvents,
-  getAbortedReducers,
   getAbortedPluginReducers,
-  replaceAbortedReducer
 } from './store/queue.utils';
 
 export interface AnalyticsInstance {
-  track: (eventName, payload) => void;
+  track: (eventName: string, payload, disabledPlugins?: Record<string, boolean>) => void;
   getState: () => RootState;
   on: (
     name: string,
@@ -61,25 +59,33 @@ export interface PluginReducers {
   [name: string]: { [K in keyof typeof CORE_LIFECYLCE_EVENTS]: CaseReducer<PluginProcessedState, Action<any>> };
 }
 
-// handle dashed naming for plugins
-// setup plugin methods
-// TODO: abort functionality
-// Debug flag implementation
-// params
-// identify events
-// storage events
-// network events
-// reset events
+// TODO: disable tracking for specific looks on specific calls - DONE
+// TODO: handle dashed naming for plugins
+// TODO: setup plugin methods
+// TODO: params
+// TODO: identify events
+// TODO: storage events
+// TODO: network events
+// TODO: reset events
+// TODO: Debug flag implementation - DONE
+// TODO: abort functionality - DONE
 export function Analytics(config: AnalyticsConfig) {
-  const analytics: AnalyticsInstance = {
-    track: async (eventName, payload) => {
+  const analytics = {
+    track: async (eventName:string, trackData, disabledPlugins?: Record<string, boolean>) => {
       if (!eventName) {
         throw new TypeError('event is missing in track call');
       }
 
+      const trackPayload: TrackPayload = {
+        event: trackData.event,
+        properties: trackData,
+        options: {
+          disabledPlugins
+        }
+      }
       return Promise.resolve(
         store.dispatch((dispatch) => {
-          dispatch(store.enqueue(trackEvents(payload)));
+          dispatch(store.enqueue(trackEvents(trackPayload)));
         })
       );
     },
@@ -107,7 +113,7 @@ export function Analytics(config: AnalyticsConfig) {
       }
       return analytics.on(EVENTS.ready, (x) => {
         callback(x);
-        analytics.dispatch(readyAction());
+        store.dispatch(readyAction());
       });
     },
 
@@ -137,10 +143,10 @@ export function Analytics(config: AnalyticsConfig) {
       getDefaultMiddleware({
         serializableCheck: false
       }).concat(queueProcessorMiddleware),
-    devTools: {
+    devTools: Boolean(config.debug) && ({
       maxAge: 1000,
       shouldHotReload: false
-    }
+    })
   });
 
   const store = {
