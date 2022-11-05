@@ -18,10 +18,7 @@ export interface AbortPayload {
 export const abortAction = createAction(EVENTS.abort);
 
 export const queueProcessorMiddleware: Middleware =
-  <
-    S extends RootState,
-    D extends ThunkDispatch<S, undefined, PayloadAction<any>>
-  >(
+  <S extends RootState, D extends ThunkDispatch<S, undefined, PayloadAction<any>>>(
     store: MiddlewareAPI<D, S> &
       StoreExtension & {
         replaceReducer: (nextReducer: ReducersMapObject<RootState>) => void;
@@ -35,9 +32,21 @@ export const queueProcessorMiddleware: Middleware =
       case processQueueAction.type:
         if (queue.length) {
           const writableQueue = [...queue];
-          const queueItem = writableQueue.shift() as PayloadAction;
+          const queueItem = writableQueue.shift() as PayloadAction<{
+            _callback: undefined | Function;
+            _context: Function | undefined;
+          }>;
           next(action);
+          const payload =
+            queueItem.payload ||
+            ({} as {
+              _callback: undefined | Function;
+              _context: Function | undefined;
+            });
+          const { _callback, _context } = payload;
           store.dispatch(queueItem);
+          if (_callback) _callback(queueItem);
+          if (_context) _context(queueItem);
           store.dispatch(updateQueue(writableQueue));
           store.dispatch(processQueueAction());
         }

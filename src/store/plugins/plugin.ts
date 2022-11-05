@@ -1,6 +1,8 @@
-import { AnyAction, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { Action, AnyAction, createAction, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Plugin, PluginProcessedState } from './plugin.types';
 import { AnalyticsModule } from '../../api';
+import { EVENTS } from '../../core-utils';
+import { createPluginState } from './plugin.utils';
 
 export function isRegisterPluginEvent(
   action: AnyAction

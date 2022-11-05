@@ -6,11 +6,11 @@ import { coreActions } from '../store';
 
 export const pluginMethods = {};
 
-export const createPluginState = (name: string, enabled: boolean, config) =>
+export const createPluginState = (name: string, enabled: boolean, initialized: boolean, config) =>
   ({
     name,
     enabled,
-    initialized: false,
+    initialized,
     abortableEvents: {},
     loaded: false,
     config
@@ -44,7 +44,48 @@ export function abort(abortWasCalled: { value: boolean }) {
 }
 
 export const clearPluginAbortEventsAction = createAction('clearAbortableEvents');
+export const enablePluginAction = createAction(EVENTS.enablePlugin);
+export const disabledPluginAction = createAction(EVENTS.disablePlugin);
+export const resetPluginAction = createAction(EVENTS.reset);
 
+const pluginReducerBase = {
+  [clearPluginAbortEventsAction.type]: (state) => {
+    state.abortableEvents = {};
+  },
+
+  [enablePluginAction.type]: (state, action: PayloadAction<{ pluginNames: string[] | string }>) => {
+    const { pluginNames } = action.payload;
+    if (Array.isArray(pluginNames)) {
+      pluginNames.forEach((pluginName) => {
+        if (state[pluginName]) {
+          state[pluginName].enabled = true;
+        }
+      });
+    } else if (typeof pluginNames !== 'string') {
+      if (state[pluginNames]) {
+        state[pluginNames].enabled = true;
+      }
+    }
+  },
+  [disabledPluginAction.type]: (state, action: PayloadAction<{ pluginNames: string[] | string }>) => {
+    const { pluginNames } = action.payload;
+    if (Array.isArray(pluginNames)) {
+      pluginNames.forEach((pluginName) => {
+        if (state[pluginName]) {
+          state[pluginName].enabled = false;
+        }
+      });
+    } else if (typeof pluginNames !== 'string') {
+      if (state[pluginNames]) {
+        state[pluginNames].enabled = false;
+      }
+    }
+  },
+
+  [resetPluginAction.type]: (state) => {
+    state = createPluginState(state.name, true, state.initilized, state.config);
+  }
+};
 /**
  * A a plugin lifecycle event will remove all plugin lifecycle events from analytics
  * after the currect lifeycle is over, and before the next lifecycle starts
@@ -100,7 +141,7 @@ const getDisabledPluginEvents = (action: PayloadAction<{ options: { disabledPlug
  */
 export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInstance) {
   const { name, enabled, initialize, loaded, config } = plugin;
-  const pluginInitialState = createPluginState(name, enabled, config);
+  const pluginInitialState = createPluginState(name, enabled, initialize, config);
   const pluginCoreReducer = CORE_LIFECYLCE_EVENTS.reduce((completeReducer, event) => {
     const genericPluginReducer = (state: PluginProcessedState = pluginInitialState, action: PayloadAction<any>) => {
       if ([EVENTS.initialize, EVENTS.initializeStart].includes(action.type)) {
@@ -164,24 +205,57 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
       completeReducer[`${coreAction.type}:${plugin.name}`] = genericPluginReducer;
     }
     return completeReducer;
-  }, {} as { [K in keyof typeof CORE_LIFECYLCE_EVENTS]: CaseReducer<PluginProcessedState, Action<any>> });
+  }, pluginReducerBase as unknown as { [K in keyof typeof CORE_LIFECYLCE_EVENTS]: CaseReducer<PluginProcessedState, Action<any>> });
 
   pluginCoreReducer[clearPluginAbortEventsAction.type] = (state) => {
     state.abortableEvents = {};
+  };
+
+  pluginCoreReducer[enablePluginAction.type] = (state, action: PayloadAction<{ pluginNames: string[] | string }>) => {
+    const { pluginNames } = action.payload;
+    if (Array.isArray(pluginNames)) {
+      pluginNames.forEach((pluginName) => {
+        if (state[pluginName]) {
+          state[pluginName].enabled = true;
+        }
+      });
+    } else if (typeof pluginNames !== 'string') {
+      if (state[pluginNames]) {
+        state[pluginNames].enabled = true;
+      }
+    }
+  };
+  pluginCoreReducer[disabledPluginAction.type] = (state, action: PayloadAction<{ pluginNames: string[] | string }>) => {
+    const { pluginNames } = action.payload;
+    if (Array.isArray(pluginNames)) {
+      pluginNames.forEach((pluginName) => {
+        if (state[pluginName]) {
+          state[pluginName].enabled = false;
+        }
+      });
+    } else if (typeof pluginNames !== 'string') {
+      if (state[pluginNames]) {
+        state[pluginNames].enabled = false;
+      }
+    }
+  };
+
+  pluginCoreReducer[resetPluginAction.type] = (state) => {
+    // get from initialPlugin state later
+    // state = createPluginState(state.name, true, state.initialized, state.config);
   };
   return { pluginCoreReducer, pluginInitialState };
 }
 
 export function createPluginSpecificReducers(plugin: Plugin, instance: AnalyticsInstance) {
   const { name, enabled, initialize, loaded, config, ...pluginProperties } = plugin;
-  const pluginInitialState = createPluginState(name, enabled, config);
+  const pluginInitialState = createPluginState(name, enabled, initialize, config);
   return Object.keys(pluginProperties).reduce((reducer, property) => {
     if (!LIFECYLCE_EVENTS[property] && typeof plugin[property] === 'function' && plugin[property]) {
       updatePluginMethodsEvents(plugin, property);
 
       reducer[property] = (state: PluginProcessedState = pluginInitialState, action: PayloadAction<any>) => {
         const disabledPluginsOnSingleEventCall = getDisabledPluginEvents(action);
-        console.log('disabledPluginsOnSingleEventCall', disabledPluginsOnSingleEventCall);
         if (!disabledPluginsOnSingleEventCall.includes(name)) {
           abortableReducer(property, state, plugin[property], {
             payload: action.payload,

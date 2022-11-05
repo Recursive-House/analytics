@@ -5,12 +5,17 @@ import {
   PayloadAction,
   AnyAction,
   Unsubscribe,
-  Action
+  Action,
+  EnhancedStore
 } from '@reduxjs/toolkit';
-import { clearPluginAbortEventsAction, createAllPluginReducers, createRegisterPluginType } from './store/plugins/plugin.utils';
+import {
+  clearPluginAbortEventsAction,
+  createAllPluginReducers,
+  createRegisterPluginType
+} from './store/plugins/plugin.utils';
 import { CaseReducer, ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer';
 import { AbortPayload, queueProcessorMiddleware } from './plugins/queueProcessor';
-import { trackEvents } from './store/track';
+import { trackEvents, TrackOptions } from './store/track';
 import { Plugin, PluginProcessedState } from './store/plugins/plugin.types';
 import {
   coreReducers,
@@ -20,16 +25,20 @@ import {
   getReducerStore,
   QueueAction,
   RootState,
-  TrackPayload
+  TrackPayload,
+  enablePluginAction,
+  disabledPluginAction
 } from './store';
 import { CORE_LIFECYLCE_EVENTS, EVENTS } from './core-utils';
-import {
-  abortSensitiveQueue,
-  getAbortedPluginReducers,
-} from './store/queue.utils';
+import { abortSensitiveQueue, getAbortedPluginReducers } from './store/queue.utils';
 
 export interface AnalyticsInstance {
-  track: (eventName: string, payload, disabledPlugins?: Record<string, boolean>) => void;
+  track: (
+    eventName: string,
+    payload: Function | ({ event: string } & Record<string, any>),
+    options?: TrackOptions,
+    callback?: Function
+  ) => void;
   getState: () => RootState;
   on: (
     name: string,
@@ -47,6 +56,7 @@ export interface AnalyticsInstance {
   abortEvent: Function;
   enqueue: (action: PayloadAction<any> | PayloadAction<AbortPayload>) => PayloadAction<any>;
   ready: (callback) => Unsubscribe;
+  plugins: ReturnType<typeof createPluginApi>;
 }
 
 export interface AnalyticsConfig {
@@ -59,7 +69,60 @@ export interface PluginReducers {
   [name: string]: { [K in keyof typeof CORE_LIFECYLCE_EVENTS]: CaseReducer<PluginProcessedState, Action<any>> };
 }
 
-// TODO: disable tracking for specific looks on specific calls - DONE
+const createPluginApi = (
+  store: EnhancedStore<any, any, any> & {
+    enqueue: (actions) => {
+      type: string;
+      payload: QueueAction;
+    };
+  }
+) => {
+  return {
+    enable: (pluginNames: string[] | string) => {
+      const currentPlugins = store.getState().plugins.map((plugin) => plugin.name);
+      if (Array.isArray(pluginNames)) {
+        pluginNames.forEach((pluginName) => {
+          if (!currentPlugins.includes(pluginName)) {
+            console.warn(`${pluginName} does not exist`);
+          }
+        });
+      } else {
+        if (!currentPlugins.includes(pluginNames)) {
+          console.warn(`${pluginNames} does not exist as plugin`);
+        }
+      }
+
+      store.dispatch(
+        store.enqueue({
+          type: enablePluginAction.type,
+          pluginNames
+        })
+      );
+    },
+    disable: (pluginNames: string[] | string) => {
+      const currentPlugins = store.getState().plugins.map((plugin) => plugin.name);
+      if (Array.isArray(pluginNames)) {
+        pluginNames.forEach((pluginName) => {
+          if (!currentPlugins.includes(pluginName)) {
+            console.warn(`${pluginName} does not exist`);
+          }
+        });
+      } else {
+        if (!currentPlugins.includes(pluginNames)) {
+          console.warn(`${pluginNames} does not exist as plugin`);
+        }
+      }
+
+      store.enqueue(
+        store.enqueue({
+          type: disabledPluginAction.type,
+          pluginNames
+        })
+      );
+    }
+  };
+};
+
 // TODO: handle dashed naming for plugins
 // TODO: setup plugin methods
 // TODO: params
@@ -67,27 +130,59 @@ export interface PluginReducers {
 // TODO: storage events
 // TODO: network events
 // TODO: reset events
+// TODO: disable plugins in plugin calls
+// TODO: enable plugins in plugin calls
+// TODO: add sync plugin functionality
+// TODO: disable tracking for specific looks on specific calls - DONE
 // TODO: Debug flag implementation - DONE
 // TODO: abort functionality - DONE
 export function Analytics(config: AnalyticsConfig) {
   const analytics = {
-    track: async (eventName:string, trackData, disabledPlugins?: Record<string, boolean>) => {
+    // eventName, payload, options, callback
+    track: async (
+      eventName: string,
+      payload: Record<string, any>,
+      options: TrackOptions = { plugins: {} } as TrackOptions,
+      callback?: Function
+    ) => {
       if (!eventName) {
         throw new TypeError('event is missing in track call');
       }
 
-      const trackPayload: TrackPayload = {
-        event: trackData.event,
-        properties: trackData,
-        options: {
-          disabledPlugins
-        }
-      }
-      return Promise.resolve(
+      const hasCallBack = typeof payload === 'function' ? payload : typeof callback === 'function' ? callback : undefined;
+      const { plugins } = options;
+
+      const { all, ...enabledStates } = plugins ? plugins : { all: true };
+
+      // facilitates disabling plugins
+      const pluginsEnabledState = !all
+        ? Object.entries(store.getState().plugin)
+            .map(([_, plugin]) => plugin.name)
+            .reduce((enabledPluginState, plugin) => {
+              enabledPluginState[plugin] = false;
+              return enabledPluginState;
+            }, {})
+        : {};
+
+      return new Promise((resolve) => {
+        const trackPayload: TrackPayload = {
+          event: eventName,
+          properties: typeof payload === 'function' ? undefined : payload,
+          options: {
+            disabledPlugins: { ...pluginsEnabledState, ...enabledStates }
+          }
+        };
+
+        const trackPayloadAfter: TrackPayload = {
+          ...trackPayload,
+          _callback: hasCallBack,
+          _context: resolve
+        };
+
         store.dispatch((dispatch) => {
-          dispatch(store.enqueue(trackEvents(trackPayload)));
-        })
-      );
+          dispatch(store.enqueue(trackEvents(trackPayload, trackPayloadAfter)));
+        });
+      });
     },
 
     on: (name: string, callback: Function): Unsubscribe => {
@@ -133,7 +228,9 @@ export function Analytics(config: AnalyticsConfig) {
     getState: (): RootState => {
       const state = store.getState();
       return { ...state };
-    }
+    },
+
+    plugins: {} as ReturnType<typeof createPluginApi>
   };
 
   // create store
@@ -143,10 +240,10 @@ export function Analytics(config: AnalyticsConfig) {
       getDefaultMiddleware({
         serializableCheck: false
       }).concat(queueProcessorMiddleware),
-    devTools: Boolean(config.debug) && ({
+    devTools: Boolean(config.debug) && {
       maxAge: 1000,
       shouldHotReload: false
-    })
+    }
   });
 
   const store = {
@@ -157,8 +254,6 @@ export function Analytics(config: AnalyticsConfig) {
   };
 
   const plugins = config.plugins || [];
-
-  // check if plugins are unique
 
   const pluginReducers = plugins.reduce((allPluginReducers, plugin: Plugin, currentIndex: number) => {
     const { name, bootstrap, config } = plugin;
@@ -173,7 +268,7 @@ export function Analytics(config: AnalyticsConfig) {
 
     allPluginReducers[plugin.name] = createAllPluginReducers(plugin, analytics);
 
-    store.enqueue({
+    analytics.enqueue({
       type: createRegisterPluginType(plugin.name),
       payload: { plugin, instance: store }
     });
@@ -184,10 +279,12 @@ export function Analytics(config: AnalyticsConfig) {
   const reducers = { ...pluginReducers, ...coreReducers };
 
   updateReducerStore(reducers);
+  analytics.plugins = createPluginApi(store);
   // add plugin reducers after processing
   store.replaceReducer(combineReducers(getReducerStore()));
-  store.dispatch(store.enqueue(initializeEvents()));
-  store.dispatch(store.enqueue(readyAction()));
+
+  analytics.enqueue(initializeEvents());
+  analytics.enqueue(readyAction());
 
   return { analytics, store };
 }

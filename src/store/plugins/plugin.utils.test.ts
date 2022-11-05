@@ -16,6 +16,11 @@ const PLUGIN_STATE = {
   abortableEvents: {},
   config: {}
 };
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 describe('plugin.utils.ts', () => {
   describe('abortabledReducer', () => {
     const sampleReducer = (state = PLUGIN_STATE, action) => {
@@ -89,7 +94,7 @@ describe('plugin.utils.ts', () => {
     it('should not allow any other reducer other than core events', () => {
       const plugin = { ...PLUGIN_STATE, sampleFun: () => ({}), sampleFunc2: () => ({}) };
       const { pluginCoreReducer } = createCorePluginReducer(plugin as any, {} as AnalyticsInstance);
-      expect(Object.keys(pluginCoreReducer).length).toBe(1);
+      expect(Object.keys(pluginCoreReducer).length).toBe(4);
     });
 
     it('should not call plugin event if plugin disabled on single event', () => {
@@ -124,7 +129,6 @@ describe('plugin.utils.ts', () => {
       const plugin = { ...PLUGIN_STATE, tracker: () => ({}) };
       const abortableRed = jest.spyOn(pluginUtils, 'abortableReducer');
       const pluginCoreReducer = createPluginSpecificReducers(plugin as any, {} as AnalyticsInstance);
-      console.log(pluginCoreReducer);
       pluginCoreReducer['tracker'](
         {},
         {
