@@ -194,7 +194,7 @@ export function Analytics(config: AnalyticsConfig) {
         };
 
         store.dispatch((dispatch) => {
-          dispatch(store.enqueue(trackEvents(trackPayload, trackPayloadAfter)));
+          dispatch(store.enqueue(trackEvents(trackPayloadAfter)));
         });
       });
     },

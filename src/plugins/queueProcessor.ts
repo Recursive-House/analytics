@@ -38,10 +38,9 @@ export const queueProcessorMiddleware: Middleware =
           };
           next(action);
           const { _callback, _context } = queueItem;
-          // console.log(action);
           store.dispatch(queueItem);
-          if (_callback) _callback(queueItem);
-          if (_context) _context(queueItem);
+          if (typeof _callback === 'function') _callback(queueItem);
+          if (typeof _context === 'function') _context(queueItem);
           store.dispatch(updateQueue(writableQueue));
           store.dispatch(processQueueAction());
         }

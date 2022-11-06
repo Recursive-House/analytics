@@ -157,7 +157,6 @@ describe('async api is', () => {
         }).analytics;
         await analyticInstance.plugins.enable('samplePlugin');
         const pluginState = analyticInstance.getState()[MOCK_PLUGIN.name];
-        console.log('pluginState', pluginState);
         expect(pluginState.enabled).toBe(true);
       });
 

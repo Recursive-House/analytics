@@ -4,7 +4,7 @@ import { EVENTS } from '../core-utils';
 export interface TrackPayload {
   event: string;
   properties: Record<string, string | number | unknown>;
-  options: unknown;
+  options: Record<string, any>;
   _callback?: Function;
   _context?: Function[] | Function;
 }
@@ -42,9 +42,8 @@ const trackSlice = createSlice({
 export const { track } = trackSlice.actions;
 export default trackSlice.reducer;
 
-export const trackEvents = (payload: TrackPayload, payloadAfter: TrackPayload) => {
-  // console.log(payloadAfter);
-  const { _context, _callback, ...remainingPayloadProperties } = payloadAfter;
+export const trackEvents = (payload: TrackPayload = {} as TrackPayload) => {
+  const { _context, _callback, ...remainingPayloadProperties } = payload;
   return [
     trackStartAction(payload),
     track(payload),
