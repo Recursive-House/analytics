@@ -79,7 +79,9 @@ const createPluginApi = (
 ) => {
   return {
     enable: (pluginNames: string[] | string) => {
-      const currentPlugins = store.getState().plugins.map((plugin) => plugin.name);
+      const currentPlugins = Object.entries<PluginProcessedState>(store.getState().plugin).map(
+        ([_, plugin]) => plugin.name
+      );
       if (Array.isArray(pluginNames)) {
         pluginNames.forEach((pluginName) => {
           if (!currentPlugins.includes(pluginName)) {
@@ -92,15 +94,22 @@ const createPluginApi = (
         }
       }
 
-      store.dispatch(
-        store.enqueue({
-          type: enablePluginAction.type,
-          pluginNames
-        })
-      );
+      return new Promise((resolve) => {
+        store.dispatch((dispatch) =>
+          dispatch(
+            store.enqueue({
+              type: enablePluginAction.type,
+              payload: pluginNames,
+              _context: resolve
+            })
+          )
+        );
+      });
     },
     disable: (pluginNames: string[] | string) => {
-      const currentPlugins = store.getState().plugins.map((plugin) => plugin.name);
+      const currentPlugins = Object.entries<PluginProcessedState>(store.getState().plugin).map(
+        ([_, plugin]) => plugin.name
+      );
       if (Array.isArray(pluginNames)) {
         pluginNames.forEach((pluginName) => {
           if (!currentPlugins.includes(pluginName)) {
@@ -113,12 +122,17 @@ const createPluginApi = (
         }
       }
 
-      store.enqueue(
-        store.enqueue({
-          type: disabledPluginAction.type,
-          pluginNames
-        })
-      );
+      return new Promise((resolve) => {
+        store.dispatch((dispatch) =>
+          dispatch(
+            store.enqueue({
+              type: disabledPluginAction.type,
+              payload: pluginNames,
+              _context: resolve
+            })
+          )
+        );
+      });
     }
   };
 };
@@ -132,8 +146,8 @@ const createPluginApi = (
 // TODO: reset events
 // TODO: disable plugins in plugin calls
 // TODO: enable plugins in plugin calls
-// TODO: add sync plugin functionality
-// TODO: disable tracking for specific looks on specific calls - DONE
+// TODO: add async plugin functionality - DONE
+// TODO: disable tracking for specific plugins on specific calls - DONE
 // TODO: Debug flag implementation - DONE
 // TODO: abort functionality - DONE
 export function Analytics(config: AnalyticsConfig) {
@@ -149,9 +163,9 @@ export function Analytics(config: AnalyticsConfig) {
         throw new TypeError('event is missing in track call');
       }
 
-      const hasCallBack = typeof payload === 'function' ? payload : typeof callback === 'function' ? callback : undefined;
+      const hasCallBack =
+        typeof payload === 'function' ? payload : typeof callback === 'function' ? callback : undefined;
       const { plugins } = options;
-
       const { all, ...enabledStates } = plugins ? plugins : { all: true };
 
       // facilitates disabling plugins
@@ -195,7 +209,7 @@ export function Analytics(config: AnalyticsConfig) {
           callback({
             payload: action,
             instance: analytics,
-            plugins: config.plugins
+            plugins: Object.entries(store.getState().plugin).map(([_, plugin]) => plugin)
           });
       });
     },

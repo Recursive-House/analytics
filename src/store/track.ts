@@ -5,7 +5,7 @@ export interface TrackPayload {
   event: string;
   properties: Record<string, string | number | unknown>;
   options: unknown;
-  _callback?: Function,
+  _callback?: Function;
   _context?: Function[] | Function;
 }
 
@@ -13,7 +13,7 @@ export interface TrackOptions {
   plugins: {
     all?: boolean;
     [plugin: string]: boolean;
-  }
+  };
 }
 
 const TRACK_PAYLOAD_INIT = {
@@ -42,8 +42,12 @@ const trackSlice = createSlice({
 export const { track } = trackSlice.actions;
 export default trackSlice.reducer;
 
-export const trackEvents = (payload: TrackPayload, payloadAfter: TrackPayload) => [
-  trackStartAction(payload),
-  track(payload),
-  trackEndAction(payloadAfter)
-];
+export const trackEvents = (payload: TrackPayload, payloadAfter: TrackPayload) => {
+  // console.log(payloadAfter);
+  const { _context, _callback, ...remainingPayloadProperties } = payloadAfter;
+  return [
+    trackStartAction(payload),
+    track(payload),
+    { ...trackEndAction(remainingPayloadProperties), _context, _callback }
+  ];
+};

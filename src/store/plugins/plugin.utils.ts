@@ -3,6 +3,7 @@ import { AnalyticsInstance } from '../../api';
 import { CORE_LIFECYLCE_EVENTS, EVENTS, LIFECYLCE_EVENTS } from '../../core-utils';
 import { Config, Plugin, PluginProcessedState } from './plugin.types';
 import { coreActions } from '../store';
+import plugin from './plugin';
 
 export const pluginMethods = {};
 
@@ -53,33 +54,13 @@ const pluginReducerBase = {
     state.abortableEvents = {};
   },
 
-  [enablePluginAction.type]: (state, action: PayloadAction<{ pluginNames: string[] | string }>) => {
-    const { pluginNames } = action.payload;
-    if (Array.isArray(pluginNames)) {
-      pluginNames.forEach((pluginName) => {
-        if (state[pluginName]) {
-          state[pluginName].enabled = true;
-        }
-      });
-    } else if (typeof pluginNames !== 'string') {
-      if (state[pluginNames]) {
-        state[pluginNames].enabled = true;
-      }
-    }
+  [enablePluginAction.type]: (state, action: PayloadAction<string[] | string>) => {
+    const pluginNames = action.payload;
+    if (pluginNames === state.name || pluginNames.includes(state.name)) state.enabled = true;
   },
-  [disabledPluginAction.type]: (state, action: PayloadAction<{ pluginNames: string[] | string }>) => {
-    const { pluginNames } = action.payload;
-    if (Array.isArray(pluginNames)) {
-      pluginNames.forEach((pluginName) => {
-        if (state[pluginName]) {
-          state[pluginName].enabled = false;
-        }
-      });
-    } else if (typeof pluginNames !== 'string') {
-      if (state[pluginNames]) {
-        state[pluginNames].enabled = false;
-      }
-    }
+  [disabledPluginAction.type]: (state, action: PayloadAction<string[] | string>) => {
+    const pluginNames = action.payload;
+    if (pluginNames === state.name || pluginNames.includes(state.name)) state.enabled = false;
   },
 
   [resetPluginAction.type]: (state) => {
@@ -145,7 +126,7 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
   const pluginCoreReducer = CORE_LIFECYLCE_EVENTS.reduce((completeReducer, event) => {
     const genericPluginReducer = (state: PluginProcessedState = pluginInitialState, action: PayloadAction<any>) => {
       if ([EVENTS.initialize, EVENTS.initializeStart].includes(action.type)) {
-        updatePluginMethodsEvents(plugin, event);
+        if (!pluginMethods[plugin.name]?.[event]) updatePluginMethodsEvents(plugin, event);
         abortableReducer(event, state, plugin[event], {
           payload: action.payload,
           config,
@@ -156,7 +137,7 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
       const disabledPluginsOnSingleEventCall = getDisabledPluginEvents(action);
 
       if (state.initialized && state.enabled && !disabledPluginsOnSingleEventCall.includes(name)) {
-        updatePluginMethodsEvents(plugin, event);
+        if (!pluginMethods[plugin.name]?.[event]) updatePluginMethodsEvents(plugin, event);
         abortableReducer(event, state, plugin[event], {
           payload: action.payload,
           config,
@@ -168,7 +149,7 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
     const coreAction = coreActions[event];
 
     if (coreAction && plugin[event]) {
-      updatePluginMethodsEvents(plugin, event);
+      if (!pluginMethods[plugin.name]?.[event]) updatePluginMethodsEvents(plugin, event);
       const initializeEndReducer = (state: PluginProcessedState = pluginInitialState, action: AnyAction) => {
         abortableReducer(event, state, plugin[event], {
           abort,
@@ -206,44 +187,6 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
     }
     return completeReducer;
   }, pluginReducerBase as unknown as { [K in keyof typeof CORE_LIFECYLCE_EVENTS]: CaseReducer<PluginProcessedState, Action<any>> });
-
-  pluginCoreReducer[clearPluginAbortEventsAction.type] = (state) => {
-    state.abortableEvents = {};
-  };
-
-  pluginCoreReducer[enablePluginAction.type] = (state, action: PayloadAction<{ pluginNames: string[] | string }>) => {
-    const { pluginNames } = action.payload;
-    if (Array.isArray(pluginNames)) {
-      pluginNames.forEach((pluginName) => {
-        if (state[pluginName]) {
-          state[pluginName].enabled = true;
-        }
-      });
-    } else if (typeof pluginNames !== 'string') {
-      if (state[pluginNames]) {
-        state[pluginNames].enabled = true;
-      }
-    }
-  };
-  pluginCoreReducer[disabledPluginAction.type] = (state, action: PayloadAction<{ pluginNames: string[] | string }>) => {
-    const { pluginNames } = action.payload;
-    if (Array.isArray(pluginNames)) {
-      pluginNames.forEach((pluginName) => {
-        if (state[pluginName]) {
-          state[pluginName].enabled = false;
-        }
-      });
-    } else if (typeof pluginNames !== 'string') {
-      if (state[pluginNames]) {
-        state[pluginNames].enabled = false;
-      }
-    }
-  };
-
-  pluginCoreReducer[resetPluginAction.type] = (state) => {
-    // get from initialPlugin state later
-    // state = createPluginState(state.name, true, state.initialized, state.config);
-  };
   return { pluginCoreReducer, pluginInitialState };
 }
 
@@ -252,7 +195,7 @@ export function createPluginSpecificReducers(plugin: Plugin, instance: Analytics
   const pluginInitialState = createPluginState(name, enabled, initialize, config);
   return Object.keys(pluginProperties).reduce((reducer, property) => {
     if (!LIFECYLCE_EVENTS[property] && typeof plugin[property] === 'function' && plugin[property]) {
-      updatePluginMethodsEvents(plugin, property);
+      if (!pluginMethods[plugin.name]?.[property]) updatePluginMethodsEvents(plugin, property);
 
       reducer[property] = (state: PluginProcessedState = pluginInitialState, action: PayloadAction<any>) => {
         const disabledPluginsOnSingleEventCall = getDisabledPluginEvents(action);

@@ -25,25 +25,20 @@ export const queueProcessorMiddleware: Middleware =
       }
   ) =>
   (next: Dispatch) =>
-  (action: PayloadAction<any>) => {
+  (action: PayloadAction<any> & { _callback: Function, _context: Function }) => {
     const state = store.getState();
     const queue = state.queue.actions;
     switch (action.type) {
       case processQueueAction.type:
         if (queue.length) {
           const writableQueue = [...queue];
-          const queueItem = writableQueue.shift() as PayloadAction<{
-            _callback: undefined | Function;
-            _context: Function | undefined;
-          }>;
+          const queueItem = writableQueue.shift() as PayloadAction & {
+            _callback?: Function;
+            _context?: Function;
+          };
           next(action);
-          const payload =
-            queueItem.payload ||
-            ({} as {
-              _callback: undefined | Function;
-              _context: Function | undefined;
-            });
-          const { _callback, _context } = payload;
+          const { _callback, _context } = queueItem;
+          // console.log(action);
           store.dispatch(queueItem);
           if (_callback) _callback(queueItem);
           if (_context) _context(queueItem);
