@@ -1,5 +1,5 @@
 import { Analytics } from './api';
-import { EVENTS } from './core-utils';
+import { EVENTS } from './utils/core.utils';
 
 describe('async api is', () => {
   let analyticsInstance;

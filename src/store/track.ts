@@ -1,5 +1,5 @@
 import { createAction, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { EVENTS } from '../core-utils';
+import { EVENTS } from '../utils/core.utils';
 
 export interface TrackPayload {
   event: string;

@@ -1,6 +1,6 @@
 import { Action, AnyAction, CaseReducer, createAction, createReducer, PayloadAction } from '@reduxjs/toolkit';
 import { AnalyticsInstance } from '../../api';
-import { CORE_LIFECYLCE_EVENTS, EVENTS, LIFECYLCE_EVENTS } from '../../core-utils';
+import { CORE_LIFECYLCE_EVENTS, EVENTS, LIFECYLCE_EVENTS } from '../../utils/core.utils';
 import { Config, Plugin, PluginProcessedState } from './plugin.types';
 import { coreActions } from '../store';
 import plugin from './plugin';

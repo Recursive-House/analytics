@@ -1,5 +1,5 @@
 import { AnalyticsInstance } from '../../api';
-import { LIFECYLCE_EVENTS_KEYS } from '../../core-utils';
+import { LIFECYLCE_EVENTS_KEYS } from '../../utils';
 
 export type LifeCycleEvent = ({ payload, config, instance }) => ({
   abort: boolean;

@@ -35,7 +35,7 @@ describe('queueProcessor', () => {
     let lastQueue;
     store.subscribe(() => {
       const action = store.getState().lastAction;
-
+      console.log(action);
       if (updateQueue.match(action)) {
         lastQueue = action.payload;
       }

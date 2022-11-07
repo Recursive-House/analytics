@@ -7,7 +7,7 @@ import {
   ReducersMapObject,
   ThunkDispatch
 } from '@reduxjs/toolkit';
-import { EVENTS } from '../core-utils';
+import { EVENTS } from '../utils';
 import { processQueueAction, updateQueue } from '../store/queue';
 import { RootState, StoreExtension } from '../store/store';
 
@@ -15,7 +15,10 @@ export interface AbortPayload {
   pluginEvent: string;
 }
 
+let queueSwitch = true;
+
 export const abortAction = createAction(EVENTS.abort);
+export const queueSwitchAction = createAction<boolean>('queueToggle');
 
 export const queueProcessorMiddleware: Middleware =
   <S extends RootState, D extends ThunkDispatch<S, undefined, PayloadAction<any>>>(
@@ -29,8 +32,11 @@ export const queueProcessorMiddleware: Middleware =
     const state = store.getState();
     const queue = state.queue.actions;
     switch (action.type) {
+      case queueSwitchAction.type:
+        queueSwitch = action.payload;
+        break;
       case processQueueAction.type:
-        if (queue.length) {
+        if (queue.length && queueSwitch) {
           const writableQueue = [...queue];
           const queueItem = writableQueue.shift() as PayloadAction & {
             _callback?: Function;
@@ -44,7 +50,7 @@ export const queueProcessorMiddleware: Middleware =
           store.dispatch(updateQueue(writableQueue));
           store.dispatch(processQueueAction());
         }
-        return;
+        break;
 
       default:
         if (!(queue.length || processQueueAction.match(action))) {
@@ -52,6 +58,5 @@ export const queueProcessorMiddleware: Middleware =
           return store.dispatch(processQueueAction());
         }
     }
-
-    return next(action);
+    return processQueueAction.match(action) ? undefined : next(action);
   };

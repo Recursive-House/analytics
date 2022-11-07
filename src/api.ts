@@ -29,8 +29,9 @@ import {
   enablePluginAction,
   disabledPluginAction
 } from './store';
-import { CORE_LIFECYLCE_EVENTS, EVENTS } from './core-utils';
+import { CORE_LIFECYLCE_EVENTS, EVENTS } from './utils/core.utils';
 import { abortSensitiveQueue, getAbortedPluginReducers } from './store/queue.utils';
+import { watch } from './utils/context.utils';
 
 export interface AnalyticsInstance {
   track: (
@@ -140,12 +141,15 @@ const createPluginApi = (
 // TODO: handle dashed naming for plugins
 // TODO: setup plugin methods
 // TODO: params
+// TODO: reset events - needs the identity and storage feature feature
 // TODO: identify events
 // TODO: storage events
-// TODO: network events
-// TODO: reset events
-// TODO: disable plugins in plugin calls
-// TODO: enable plugins in plugin calls
+// TODO: page events
+// TODO: once lifecycle call  
+// TODO: turn queue on or off if online or offline
+// TODO: network events - DONE
+// TODO: disable plugins in plugin calls - DONE
+// TODO: enable plugins in plugin calls - DONE
 // TODO: add async plugin functionality - DONE
 // TODO: disable tracking for specific plugins on specific calls - DONE
 // TODO: Debug flag implementation - DONE
@@ -300,6 +304,11 @@ export function Analytics(config: AnalyticsConfig) {
   analytics.enqueue(initializeEvents());
   analytics.enqueue(readyAction());
 
+  watch((online) => {
+    store.dispatch({
+      type: online ? EVENTS.online : EVENTS.offline
+    });
+  });
   return { analytics, store };
 }
 

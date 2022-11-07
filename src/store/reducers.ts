@@ -1,5 +1,5 @@
 import { createAction } from '@reduxjs/toolkit';
-import { EVENTS } from '../core-utils';
+import { EVENTS } from '../utils';
 import pluginReducer from './plugins/plugin';
 import queueReducer from './queue';
 import trackReducer from './track';

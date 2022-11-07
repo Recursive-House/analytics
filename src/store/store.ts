@@ -1,6 +1,6 @@
 import { Action, CaseReducer, createAction, PayloadAction, ReducersMapObject } from '@reduxjs/toolkit';
 import { AnalyticsInstance } from '../api';
-import { EVENTS } from '../core-utils';
+import { EVENTS } from '../utils';
 import { coreReducers } from './reducers';
 import { track, trackEndAction, trackStartAction } from './track';
 
