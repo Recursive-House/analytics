@@ -34,6 +34,9 @@ export const queueProcessorMiddleware: Middleware =
     switch (action.type) {
       case queueSwitchAction.type:
         queueSwitch = action.payload;
+        if (queueSwitch) {
+          store.dispatch(processQueueAction);
+        }
         break;
       case processQueueAction.type:
         if (queue.length && queueSwitch) {

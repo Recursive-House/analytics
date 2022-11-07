@@ -1,15 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
-import {
-  coreReducers,
-  enqueue,
-  processQueueAction,
-  trackAction,
-  trackEndAction,
-  trackEvents,
-  trackStartAction,
-  updateQueue
-} from '../store';
-import { queueProcessorMiddleware } from './queueProcessor';
+import { coreReducers, processQueueAction, trackEvents, updateQueue } from '../store';
+import { queueProcessorMiddleware, queueSwitchAction } from './queueProcessor';
 
 describe('queueProcessor', () => {
   let store;
@@ -31,11 +22,12 @@ describe('queueProcessor', () => {
     });
     queueMiddleware = queueProcessorMiddleware(store)(() => ({ type: 'fakeAction', random: 'rst' } as any));
   });
-  it("shouldn't stop processing the queue until the queue is empty", () => {
+
+  it('shouldn\'t stop processing the queue until the queue is empty', () => {
     let lastQueue;
     store.subscribe(() => {
       const action = store.getState().lastAction;
-      console.log(action);
+
       if (updateQueue.match(action)) {
         lastQueue = action.payload;
       }
@@ -45,7 +37,8 @@ describe('queueProcessor', () => {
     });
     store.dispatch(updateQueue(trackEvents({ ...trackPayload })));
   });
-  it("shouldn't process if the queue is empty", () => {
+
+  it('shouldn\'t process if the queue is empty', () => {
     jest.spyOn(store, 'getState').mockReturnValue({
       queue: {
         actions: []
@@ -56,6 +49,28 @@ describe('queueProcessor', () => {
     expect(dispatchSpy).not.toBeCalled();
     expect(queueResult).toBeFalsy();
   });
+
+  it('shouldn\'t allow the queue to process any events when the switch is turned off', () => {
+    store.dispatch(updateQueue(trackEvents({...trackPayload})));
+    store.dispatch(queueSwitchAction(false));
+    store.subscribe(() => {
+      const queue = store.getState().queue.actions;
+      expect(queue.length).toBe(3);
+    })
+    store.dispatch(processQueueAction);
+  });
+ 
+  it('should start up queue processing again when queue is switched on', () => {
+    store.dispatch(queueSwitchAction(false));
+    store.dispatch(updateQueue(trackEvents({...trackPayload})));
+    store.subscribe(() => {
+      const queue = store.getState().queue.actions;
+      if (!queue.length) {
+        expect(queue.length).toBe(0);
+      }
+    });
+    store.dispatch(queueSwitchAction(true));
+  })
 
   // store.dispatch.mock.calls.length stays the same size at 1. Doesn't grow with number of calls
   //
