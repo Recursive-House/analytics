@@ -32,6 +32,8 @@ import {
 import { CORE_LIFECYLCE_EVENTS, EVENTS } from './utils/core.utils';
 import { abortSensitiveQueue, getAbortedPluginReducers } from './store/queue.utils';
 import { watch } from './utils/context.utils';
+import { getPageData } from './store/page/page.utils';
+import { pageEvents } from './store/page/page';
 
 export interface AnalyticsInstance {
   track: (
@@ -145,8 +147,8 @@ const createPluginApi = (
 // TODO: identify events
 // TODO: storage events
 // TODO: page events
-// TODO: once lifecycle call  
-// TODO: turn queue on or off if online or offline
+// TODO: once lifecycle call - DONE
+// TODO: turn queue on or off if online or offline - DONE
 // TODO: network events - DONE
 // TODO: disable plugins in plugin calls - DONE
 // TODO: enable plugins in plugin calls - DONE
@@ -203,6 +205,20 @@ export function Analytics(config: AnalyticsConfig) {
       });
     },
 
+    page: (data, options, callback) => {
+      return new Promise((resolve) => {
+        const pagePayloadAfter = {
+          properties: getPageData(Object.keys(data).length ? data : {}),
+          options: Object.keys(options).length ? options : {},
+          _context: resolve,
+          _callback: callback
+        };
+        store.dispatch((dispatch) => {
+          dispatch(store.enqueue(pageEvents(pagePayloadAfter)));
+        });
+      });
+    },
+
     on: (name: string, callback: Function): Unsubscribe => {
       if (!name || typeof callback !== 'function') {
         throw new TypeError(`name or callback but on feature invalid name: ${name}, callback: ${callback}`);
@@ -215,6 +231,21 @@ export function Analytics(config: AnalyticsConfig) {
             instance: analytics,
             plugins: Object.entries(store.getState().plugin).map(([_, plugin]) => plugin)
           });
+      });
+    },
+
+    once: (name, callback) => {
+      if (!name || typeof callback === 'function') {
+        return false;
+      }
+      const detachOnListner = analytics.on(name, ({ payload }) => {
+        callback({
+          // eslint-disable-line
+          payload: payload,
+          instance: analytics,
+          plugins: Object.entries(store.getState().plugin).map(([_, plugin]) => plugin)
+        });
+        detachOnListner();
       });
     },
 
