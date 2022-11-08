@@ -78,7 +78,8 @@ const createPluginApi = (
       type: string;
       payload: QueueAction;
     };
-  }
+  },
+  analytics: AnalyticsInstance
 ) => {
   return {
     enable: (pluginNames: string[] | string) => {
@@ -136,6 +137,26 @@ const createPluginApi = (
           )
         );
       });
+    },
+    addPlugins: (plugin: Plugin) => {
+      const { name, bootstrap, config } = plugin;
+      if (!name) {
+        throw new Error(
+          `plugin does not have a name. Please enter a name for your plugin`
+        );
+      }
+      if (bootstrap && typeof bootstrap === 'function') {
+        bootstrap({ instance: analytics, config, payload: plugin });
+      }
+
+      const pluginReducer = createAllPluginReducers(plugin, analytics);
+
+      analytics.enqueue({
+        type: createRegisterPluginType(plugin.name),
+        payload: { plugin, instance: store }
+      });
+
+      return pluginReducer;
     }
   };
 };
@@ -322,32 +343,22 @@ export function Analytics(config: AnalyticsConfig) {
   };
 
   const plugins = config.plugins || [];
+  analytics.plugins = createPluginApi(store, analytics);
 
   const pluginReducers = plugins.reduce((allPluginReducers, plugin: Plugin, currentIndex: number) => {
-    const { name, bootstrap, config } = plugin;
-    if (!name) {
-      throw new Error(
-        `plugin does not have a name. Please enter a name for your plugin. Plugin present at index ${currentIndex}`
-      );
-    }
-    if (bootstrap && typeof bootstrap === 'function') {
-      bootstrap({ instance: analytics, config, payload: plugin });
-    }
-
-    allPluginReducers[plugin.name] = createAllPluginReducers(plugin, analytics);
-
-    analytics.enqueue({
-      type: createRegisterPluginType(plugin.name),
-      payload: { plugin, instance: store }
-    });
-
+    const { name } = plugin;
+      if (!name) {
+        throw new Error(
+          `plugin does not have a name. Please enter a name for your plugin ${JSON.stringify(plugin)} at ${currentIndex}`
+        );
+      }
+    allPluginReducers[plugin.name] = analytics.plugins.addPlugins(plugin);
     return allPluginReducers;
   }, {} as { [key: string]: ReducerWithInitialState<PluginProcessedState> });
 
   const reducers = { ...pluginReducers, ...coreReducers };
 
   updateReducerStore(reducers);
-  analytics.plugins = createPluginApi(store);
   // add plugin reducers after processing
   store.replaceReducer(combineReducers(getReducerStore()));
 
