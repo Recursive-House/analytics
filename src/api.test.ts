@@ -61,15 +61,15 @@ describe('async api is', () => {
           name: 'samplePlugin',
           enabled: true,
           initialize: true,
-          trackStart() {
+          pageStart() {
             internalTrackStart();
           },
-          track() {
+          page() {
             internalTrack();
           }
         } as any;
 
-        const callbackSpy = jest.fn().mockReturnValue('callback spy called');
+        const callbackSpy = jest.fn();
 
         analyticsInstance = Analytics({
           reducers: [],
@@ -110,6 +110,64 @@ describe('async api is', () => {
       it('should return the trackEndAction when the promise finishes executing', async () => {
         const trackResult = await analyticsInstance.track('event', { tell: 'us' });
         expect(trackResult.type).toBe(EVENTS.trackEnd);
+      });
+    });
+
+    describe('page', () => {
+      it("shouldn't allow callback before 'Start' suffixed and event calls have finished", async () => {
+        const internalPageStart = jest.fn();
+        const internalPage = jest.fn();
+        const samplePlugin = {
+          name: 'samplePlugin',
+          enabled: true,
+          initialize: true,
+          pageStart() {
+            internalPageStart();
+          },
+          page() {
+            internalPage();
+          }
+        } as any;
+
+        const callbackSpy = jest.fn();
+        const callback = () => {
+          callbackSpy();
+        };
+
+        analyticsInstance = Analytics({
+          reducers: [],
+          plugins: [samplePlugin],
+          debug: false
+        }).analytics;
+
+        await analyticsInstance.page(callback);
+        await expect(callback).not.toHaveBeenCalledBefore(internalPageStart);
+        await expect(callback).not.toHaveBeenCalledBefore(internalPage);
+        await expect(callbackSpy).toHaveBeenCalled();
+      });
+
+      it("shouldn't call resolve if there is an error in the event functions", async () => {
+        const internalPage = jest.fn();
+        const samplePlugin = {
+          name: 'samplePlugin',
+          enabled: true,
+          initialize: true,
+          trackStart() {
+            throw new Error('random error called');
+          },
+          track() {
+            internalPage();
+          }
+        } as any;
+        analyticsInstance = Analytics({
+          reducers: [],
+          plugins: [samplePlugin],
+          debug: false
+        }).analytics;
+
+        analyticsInstance.page({ key: 'value' }).catch((e) => {
+          expect(e.message).toBe('random error called');
+        });
       });
     });
 

@@ -146,7 +146,7 @@ const createPluginApi = (
 // TODO: reset events - needs the identity and storage feature feature
 // TODO: identify events
 // TODO: storage events
-// TODO: page events
+// TODO: page events -  DONE
 // TODO: once lifecycle call - DONE
 // TODO: turn queue on or off if online or offline - DONE
 // TODO: network events - DONE
@@ -207,9 +207,28 @@ export function Analytics(config: AnalyticsConfig) {
 
     page: (data, options, callback) => {
       return new Promise((resolve) => {
+        const opts = options || {};
+        const { plugins } = opts;
+        const { all, ...enabledStates } = plugins ? plugins : { all: true };
+
+        // facilitates disabling plugins
+        const pluginsEnabledState = !all
+          ? Object.entries(store.getState().plugin)
+              .map(([_, plugin]) => plugin.name)
+              .reduce((enabledPluginState, plugin) => {
+                enabledPluginState[plugin] = false;
+                return enabledPluginState;
+              }, {})
+          : {};
+
+        if (typeof data === 'function') callback = data;
+
         const pagePayloadAfter = {
           properties: getPageData(Object.keys(data).length ? data : {}),
-          options: Object.keys(options).length ? options : {},
+          options: {
+            ...(Object.keys(opts).length ? options : {}),
+            disabledPlugins: { ...pluginsEnabledState, ...enabledStates }
+          },
           _context: resolve,
           _callback: callback
         };
