@@ -11,6 +11,8 @@ import {
 import {
   clearPluginAbortEventsAction,
   createAllPluginReducers,
+  createInitializePluginType,
+  createReadyPluginType,
   createRegisterPluginType
 } from './store/plugins/plugin.utils';
 import { CaseReducer, ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer';
@@ -72,6 +74,17 @@ export interface PluginReducers {
   [name: string]: { [K in keyof typeof CORE_LIFECYLCE_EVENTS]: CaseReducer<PluginProcessedState, Action<any>> };
 }
 
+const createPluginReducers = (analytics: AnalyticsInstance, plugin: Plugin) => {
+  const { name, bootstrap, config } = plugin;
+  if (!name) {
+    throw new Error(`plugin does not have a name. Please enter a name for your plugin`);
+  }
+  if (bootstrap && typeof bootstrap === 'function') {
+    bootstrap({ instance: analytics, config, payload: plugin });
+  }
+
+  return createAllPluginReducers(plugin, analytics);
+};
 const createPluginApi = (
   store: EnhancedStore<any, any, any> & {
     enqueue: (actions) => {
@@ -139,24 +152,25 @@ const createPluginApi = (
       });
     },
     addPlugins: (plugin: Plugin) => {
-      const { name, bootstrap, config } = plugin;
-      if (!name) {
-        throw new Error(
-          `plugin does not have a name. Please enter a name for your plugin`
-        );
-      }
-      if (bootstrap && typeof bootstrap === 'function') {
-        bootstrap({ instance: analytics, config, payload: plugin });
-      }
-
-      const pluginReducer = createAllPluginReducers(plugin, analytics);
+      const pluginReducer = createPluginReducers(analytics, plugin);
 
       analytics.enqueue({
         type: createRegisterPluginType(plugin.name),
         payload: { plugin, instance: store }
       });
+      const reducers = { ...getReducerStore(), [plugin.name]: pluginReducer };
 
-      return pluginReducer;
+      // console.ll
+      updateReducerStore(reducers);
+
+      // add plugin reducers after processing
+      store.replaceReducer(combineReducers(getReducerStore()));
+      store.enqueue({
+        type: createInitializePluginType(plugin.name),
+      });
+      store.enqueue({
+        type: createReadyPluginType(plugin.name),
+      });
     }
   };
 };
@@ -347,12 +361,18 @@ export function Analytics(config: AnalyticsConfig) {
 
   const pluginReducers = plugins.reduce((allPluginReducers, plugin: Plugin, currentIndex: number) => {
     const { name } = plugin;
-      if (!name) {
-        throw new Error(
-          `plugin does not have a name. Please enter a name for your plugin ${JSON.stringify(plugin)} at ${currentIndex}`
-        );
-      }
-    allPluginReducers[plugin.name] = analytics.plugins.addPlugins(plugin);
+    if (!name) {
+      throw new Error(
+        `plugin does not have a name. Please enter a name for your plugin ${JSON.stringify(plugin)} at ${currentIndex}`
+      );
+    }
+    allPluginReducers[plugin.name] = createPluginReducers(analytics, plugin);
+
+    analytics.enqueue({
+      type: createRegisterPluginType(plugin.name),
+      payload: { plugin, instance: store }
+    });
+
     return allPluginReducers;
   }, {} as { [key: string]: ReducerWithInitialState<PluginProcessedState> });
 

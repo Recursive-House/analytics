@@ -230,3 +230,11 @@ export function createAllPluginReducers(
 export function createRegisterPluginType(name: string) {
   return `registerPlugin:${name}`;
 }
+
+export const createPluginType = (prefix:string) => (name: string) => {
+  return `${prefix}:${name}`;
+}
+
+export const createInitializePluginType = createPluginType('initializePlugin');
+
+export const createReadyPluginType = createPluginType('readyPlugin');
