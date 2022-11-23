@@ -3,6 +3,8 @@ import { EVENTS } from '../utils';
 import pluginReducer from './plugins/plugin';
 import queueReducer from './queue';
 import trackReducer from './track';
+import identifyReducer from './identity';
+import storageReducer from './storage';
 
 export const readyAction = createAction(EVENTS.ready);
 
@@ -20,6 +22,8 @@ export const coreReducers = {
   queue: queueReducer,
   plugin: pluginReducer,
   ready: readyReducer,
+  identify: identifyReducer,
+  storage: storageReducer,
   lastAction: (state, action) => (state = action)
 };
 

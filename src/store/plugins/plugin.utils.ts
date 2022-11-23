@@ -2,7 +2,7 @@ import { Action, AnyAction, CaseReducer, createAction, createReducer, PayloadAct
 import { AnalyticsInstance } from '../../api';
 import { CORE_LIFECYLCE_EVENTS, EVENTS, LIFECYLCE_EVENTS } from '../../utils/core.utils';
 import { Config, Plugin, PluginProcessedState } from './plugin.types';
-import { coreActions } from '../store';
+import { coreActions, getAbortedEvents, setAbortedEvents, setRemovedEvents } from '../store';
 import plugin from './plugin';
 
 export const pluginMethods = {};
@@ -12,7 +12,6 @@ export const createPluginState = (name: string, enabled: boolean, initialized: b
     name,
     enabled,
     initialized,
-    abortableEvents: {},
     loaded: false,
     config
   } as PluginProcessedState);
@@ -44,16 +43,23 @@ export function abort(abortWasCalled: { value: boolean }) {
   };
 }
 
+export function remove(removeWasCalled: { value: boolean }) {
+  return <T extends keyof typeof EVENTS>(event: T, message: string) => {
+    removeWasCalled.value = true;
+    console.log(removeWasCalled, 'set');
+    return {
+      remove: event,
+      message
+    };
+  };
+}
+
 export const clearPluginAbortEventsAction = createAction('clearAbortableEvents');
 export const enablePluginAction = createAction(EVENTS.enablePlugin);
 export const disabledPluginAction = createAction(EVENTS.disablePlugin);
 export const resetPluginAction = createAction(EVENTS.reset);
 
 const pluginReducerBase = {
-  [clearPluginAbortEventsAction.type]: (state) => {
-    state.abortableEvents = {};
-  },
-
   [enablePluginAction.type]: (state, action: PayloadAction<string[] | string>) => {
     const pluginNames = action.payload;
     if (pluginNames === state.name || pluginNames.includes(state.name)) state.enabled = true;
@@ -81,22 +87,33 @@ const pluginReducerBase = {
  * @param reducer 
  * @param reducerOptions 
  */
-export function abortableReducer(event: string, state, reducer, reducerOptions) {
+export function conditonalReducer(event: keyof typeof EVENTS | string, state, reducer, reducerOptions) {
   if (typeof reducer !== 'function') {
     throw new TypeError(`reducer ${reducer} is not a valid function`);
   }
 
   let wasAborted = {
-    value: false
-  };
-  const abortedResult = reducer({ ...reducerOptions, abort: abort(wasAborted) });
+      value: false
+    },
+    wasRemoved = {
+      value: false
+    };
 
-  if (wasAborted.value && !abortedResult.abort) {
+
+  const abortedResult = !getAbortedEvents(event)
+    ? reducer({ ...reducerOptions, abort: abort(wasAborted), remove: remove(wasRemoved) })
+    : { abort: true };
+
+  if (wasAborted.value && !abortedResult) {
     throw new Error('abort was called but not returned. Please call abort in order to facilitate it');
   }
 
   if (abortedResult && abortedResult.abort) {
-    state.abortableEvents[event] = true;
+    setAbortedEvents(event, true);
+  }
+
+  if (wasRemoved && wasRemoved.value) {
+    setRemovedEvents(event, true);
   }
 }
 
@@ -127,7 +144,7 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
     const genericPluginReducer = (state: PluginProcessedState = pluginInitialState, action: PayloadAction<any>) => {
       if ([EVENTS.initialize, EVENTS.initializeStart].includes(action.type)) {
         if (!pluginMethods[plugin.name]?.[event]) updatePluginMethodsEvents(plugin, event);
-        abortableReducer(event, state, plugin[event], {
+        conditonalReducer(event, state, plugin[event], {
           payload: action.payload,
           config,
           instance
@@ -138,7 +155,7 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
 
       if (state.initialized && state.enabled && !disabledPluginsOnSingleEventCall.includes(name)) {
         if (!pluginMethods[plugin.name]?.[event]) updatePluginMethodsEvents(plugin, event);
-        abortableReducer(event, state, plugin[event], {
+        conditonalReducer(event, state, plugin[event], {
           payload: action.payload,
           config,
           instance
@@ -151,7 +168,7 @@ export function createCorePluginReducer(plugin: Plugin, instance: AnalyticsInsta
     if (coreAction && plugin[event]) {
       if (!pluginMethods[plugin.name]?.[event]) updatePluginMethodsEvents(plugin, event);
       const initializeEndReducer = (state: PluginProcessedState = pluginInitialState, action: AnyAction) => {
-        abortableReducer(event, state, plugin[event], {
+        conditonalReducer(event, state, plugin[event], {
           abort,
           payload: action.payload,
           config,
@@ -200,7 +217,7 @@ export function createPluginSpecificReducers(plugin: Plugin, instance: Analytics
       reducer[property] = (state: PluginProcessedState = pluginInitialState, action: PayloadAction<any>) => {
         const disabledPluginsOnSingleEventCall = getDisabledPluginEvents(action);
         if (!disabledPluginsOnSingleEventCall.includes(name)) {
-          abortableReducer(property, state, plugin[property], {
+          conditonalReducer(property, state, plugin[property], {
             payload: action.payload,
             config,
             instance
@@ -231,9 +248,9 @@ export function createRegisterPluginType(name: string) {
   return `registerPlugin:${name}`;
 }
 
-export const createPluginType = (prefix:string) => (name: string) => {
+export const createPluginType = (prefix: string) => (name: string) => {
   return `${prefix}:${name}`;
-}
+};
 
 export const createInitializePluginType = createPluginType('initializePlugin');
 

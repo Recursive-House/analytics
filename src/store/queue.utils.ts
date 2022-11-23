@@ -4,23 +4,7 @@ import { abortAction } from '../plugins/queueProcessor';
 import { clearPluginAbortEventsAction, createAllPluginReducers, getPluginMethods } from './plugins';
 import { enqueue, QueueAction } from './queue';
 import { CORE_REDUCER_KEYS, getReducerStore } from './reducers';
-import { RootState } from './store';
-
-export function collectAbortedEvents(globalState: RootState) {
-  const abortableEventStates = Object.keys(globalState).reduce((pluginAbortState, stateKey) => {
-    if (CORE_REDUCER_KEYS[stateKey]) {
-      return pluginAbortState;
-    }
-    return (
-      (pluginAbortState[stateKey] = globalState[stateKey].abortableEvents ? globalState[stateKey].abortableEvents : {}),
-      pluginAbortState
-    );
-  }, {});
-
-  return new Set(
-    ...Object.keys(abortableEventStates).map((pluginStateKey) => Object.keys(abortableEventStates[pluginStateKey]))
-  );
-}
+import { getAllRemovedEvents } from './store';
 
 export function getAbortedReducers<S, AS extends Action>(collectedAbortedEvents: Set<string>) {
   const reducers = { ...getPluginMethods() };
@@ -44,7 +28,7 @@ export function getAbortedReducers<S, AS extends Action>(collectedAbortedEvents:
   );
 }
 
-export function getAbortedPluginReducers(
+export function getDeletedPluginReducers(
   store: EnhancedStore<any, any, any>,
   analytics: AnalyticsInstance,
   collectedAbortedEvents: Set<string>
@@ -61,19 +45,18 @@ export function getAbortedPluginReducers(
   }, {});
 }
 
-export function replaceAbortedReducer(store: EnhancedStore<any, any, any>, analytics: AnalyticsInstance) {
-  const collectedAbortedEvents = collectAbortedEvents(store.getState());
+export function replaceDeletedReducer(store: EnhancedStore<any, any, any>, analytics: AnalyticsInstance) {
+  const collectedAbortedEvents = new Set(Object.keys(getAllRemovedEvents()));
   if (collectedAbortedEvents.size) {
-    const pluginReducers = getAbortedPluginReducers(store, analytics, collectedAbortedEvents);
+    const pluginReducers = getDeletedPluginReducers(store, analytics, collectedAbortedEvents);
     store.replaceReducer(combineReducers({ ...getReducerStore(), ...pluginReducers }));
-    store.dispatch(clearPluginAbortEventsAction());
   }
 }
 
-export function abortSensitiveQueue(store: EnhancedStore<any, any, any>, analytics: AnalyticsInstance) {
+export function deleteSensitiveQueue(store: EnhancedStore<any, any, any>, analytics: AnalyticsInstance) {
   return (actions: QueueAction) => {
     if (Array.isArray(actions) || typeof actions === 'function') {
-      replaceAbortedReducer(store, analytics);
+      replaceDeletedReducer(store, analytics);
       return enqueue(actions);
     }
 
@@ -81,7 +64,7 @@ export function abortSensitiveQueue(store: EnhancedStore<any, any, any>, analyti
       case abortAction.type:
         return enqueue(actions);
       default:
-        replaceAbortedReducer(store, analytics);
+        replaceDeletedReducer(store, analytics);
         return enqueue(actions);
     }
   };

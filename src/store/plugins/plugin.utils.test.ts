@@ -1,8 +1,9 @@
 import { AnalyticsInstance } from '../../api';
+import { getAbortedEvents, getRemovedEvents, resetAbortedEvents, resetRemovedEvents, setAbortedEvents } from '../store';
 import * as pluginUtils from './plugin.utils';
 import {
   updatePluginMethodsEvents,
-  abortableReducer,
+  conditonalReducer,
   createCorePluginReducer,
   createPluginSpecificReducers,
   createAllPluginReducers
@@ -13,42 +14,40 @@ const PLUGIN_STATE = {
   enabled: true,
   initialized: false,
   loaded: false,
-  abortableEvents: {},
   config: {}
 };
+
+beforeEach(() => {
+  resetAbortedEvents();
+  resetRemovedEvents();
+
+})
 
 afterEach(() => {
   jest.restoreAllMocks();
 });
 
 describe('plugin.utils.ts', () => {
-  describe('abortabledReducer', () => {
+  describe('conditonalReducer', () => {
     const sampleReducer = (state = PLUGIN_STATE, action) => {
       return {
         abort: false,
         message: 'sample reducer return value'
       };
     };
+    
     it('should not update state if its abortable', () => {
-      const plugin = {
-        ...PLUGIN_STATE,
-        abortableEvents: {}
-      };
-      abortableReducer('track', plugin, sampleReducer, {
+      conditonalReducer('track', PLUGIN_STATE, sampleReducer, {
         payload: {},
         config: {},
         instance: {}
       });
-      expect(plugin.abortableEvents['track']).toBe(undefined);
+      const state = getAbortedEvents('track');
+      expect(state).toBe(undefined);
     });
     it('should not update state if there is an invalid reducer', () => {
-      const state = {
-        ...PLUGIN_STATE,
-        abortableEvents: {}
-      };
-
       expect(() =>
-        abortableReducer('track', state, 'sampleReducer', {
+        conditonalReducer('track', PLUGIN_STATE, 'sampleReducer', {
           payload: {},
           config: {},
           instance: {}
@@ -57,23 +56,56 @@ describe('plugin.utils.ts', () => {
     });
 
     it('should not work when abort is called but not returned', () => {
-      const state = {
-        ...PLUGIN_STATE,
-        abortableEvents: {}
-      };
-
       const sampleReducer = ({ abort }) => {
         abort();
         return;
       };
 
       expect(() =>
-        abortableReducer('track', state, sampleReducer, {
+        conditonalReducer('track', PLUGIN_STATE, sampleReducer, {
           payload: {},
           config: {},
           instance: {}
         })
       ).toThrow(Error);
+    });
+
+    it('should not work when abort is called but not returned', () => {
+      const sampleReducer = ({ abort }) => {
+        abort();
+        return;
+      };
+
+      expect(() =>
+        conditonalReducer('track', PLUGIN_STATE, sampleReducer, {
+          payload: {},
+          config: {},
+          instance: {}
+        })
+      ).toThrow(Error);
+    });
+
+    it('should not should not call plugin event if event functionality aborted', () => {
+      let reducer = jest.fn(sampleReducer);
+      setAbortedEvents('track', true);
+      conditonalReducer('track', PLUGIN_STATE, reducer,  {
+        payload: {},
+        config: {},
+        instance: {}
+      });
+      expect(reducer).not.toBeCalled();
+    });
+
+    it('should set removed events in removed events store when function is called ', () => {
+      const removedEventReducer = ({ remove }) => {
+        remove();
+      }
+      conditonalReducer('track', PLUGIN_STATE, removedEventReducer,  {
+        payload: {},
+        config: {},
+        instance: {}
+      });
+      expect(getRemovedEvents('track')).toBe(true);
     });
   });
 
@@ -94,7 +126,7 @@ describe('plugin.utils.ts', () => {
     it('should not allow any other reducer other than core events', () => {
       const plugin = { ...PLUGIN_STATE, sampleFun: () => ({}), sampleFunc2: () => ({}) };
       const { pluginCoreReducer } = createCorePluginReducer(plugin as any, {} as AnalyticsInstance);
-      expect(Object.keys(pluginCoreReducer).length).toBe(4);
+      expect(Object.keys(pluginCoreReducer).length).toBe(3);
     });
 
     it('should not call plugin event if plugin disabled on single event', () => {
@@ -127,7 +159,7 @@ describe('plugin.utils.ts', () => {
 
     it('should not call plugin event if plugin disabled on single event', () => {
       const plugin = { ...PLUGIN_STATE, tracker: () => ({}) };
-      const abortableRed = jest.spyOn(pluginUtils, 'abortableReducer');
+      const abortableRed = jest.spyOn(pluginUtils, 'conditonalReducer');
       const pluginCoreReducer = createPluginSpecificReducers(plugin as any, {} as AnalyticsInstance);
       pluginCoreReducer['tracker'](
         {},

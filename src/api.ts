@@ -15,6 +15,7 @@ import {
   createReadyPluginType,
   createRegisterPluginType
 } from './store/plugins/plugin.utils';
+import { get, set, remove } from './utils/storage';
 import { CaseReducer, ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer';
 import { AbortPayload, queueProcessorMiddleware } from './plugins/queueProcessor';
 import { trackEvents, TrackOptions } from './store/track';
@@ -28,14 +29,22 @@ import {
   QueueAction,
   RootState,
   TrackPayload,
+  IdentifyPayload,
   enablePluginAction,
-  disabledPluginAction
+  disabledPluginAction,
+  identifyEvents,
+  resetEvents,
+  resetAbortedEvents
 } from './store';
 import { CORE_LIFECYLCE_EVENTS, EVENTS } from './utils/core.utils';
-import { abortSensitiveQueue, getAbortedPluginReducers } from './store/queue.utils';
+import { deleteSensitiveQueue, getDeletedPluginReducers } from './store/queue.utils';
 import { watch } from './utils/context.utils';
 import { getPageData } from './store/page/page.utils';
 import { pageEvents } from './store/page/page';
+import { getUserPropFunc, tempKey } from './user/user';
+import { isObject } from './utils/analytics.utils';
+import { ID } from './utils/constants';
+import { ANONID } from './utils/utility';
 
 export interface AnalyticsInstance {
   track: (
@@ -58,7 +67,6 @@ export interface AnalyticsInstance {
     }) => void
   ) => Unsubscribe;
   dispatch: Function;
-  abortEvent: Function;
   enqueue: (action: PayloadAction<any> | PayloadAction<AbortPayload>) => PayloadAction<any>;
   ready: (callback) => Unsubscribe;
   plugins: ReturnType<typeof createPluginApi>;
@@ -68,6 +76,11 @@ export interface AnalyticsConfig {
   reducers?: Reducer[];
   plugins?: Plugin[];
   debug: boolean;
+  storage?: {
+    getItem: Function;
+    setItem: Function;
+    removeItem: Function;
+  };
 }
 
 export interface PluginReducers {
@@ -166,10 +179,10 @@ const createPluginApi = (
       // add plugin reducers after processing
       store.replaceReducer(combineReducers(getReducerStore()));
       store.enqueue({
-        type: createInitializePluginType(plugin.name),
+        type: createInitializePluginType(plugin.name)
       });
       store.enqueue({
-        type: createReadyPluginType(plugin.name),
+        type: createReadyPluginType(plugin.name)
       });
     }
   };
@@ -179,7 +192,7 @@ const createPluginApi = (
 // TODO: setup plugin methods
 // TODO: params
 // TODO: reset events - needs the identity and storage feature feature
-// TODO: identify events
+// TODO: identify events - DONE
 // TODO: storage events
 // TODO: page events -  DONE
 // TODO: once lifecycle call - DONE
@@ -192,8 +205,77 @@ const createPluginApi = (
 // TODO: Debug flag implementation - DONE
 // TODO: abort functionality - DONE
 export function Analytics(config: AnalyticsConfig) {
+  const storage = config.storage
+    ? config.storage
+    : {
+        getItem: get,
+        setItem: set,
+        removeItem: remove
+      };
+
+  const getUserProp = getUserPropFunc(storage);
+
   const analytics = {
-    // eventName, payload, options, callback
+    identify: async (userId, traits, options, callback) => {
+      const id = typeof userId === 'string' ? userId : null;
+      const data = isObject(userId) ? userId : traits;
+      const opts = options || {};
+      const user = analytics.user();
+
+      /* sets temporary in memory id. Not to be relied on */
+      set(tempKey(ID), id);
+
+      const resolvedId = id || data.userId || getUserProp(ID, analytics, data);
+
+      return new Promise((resolve) => {
+        const identifyPayload: IdentifyPayload = {
+          userId: resolvedId,
+          traits: data || {},
+          options: opts,
+          storage,
+          analytics,
+          anonymousId: user.anonymousId
+        };
+
+        const identifyPayloadAfter: IdentifyPayload = {
+          ...identifyPayload,
+          _callback: callback,
+          _context: resolve
+        };
+
+        store.dispatch((dispatch) => {
+          dispatch(store.enqueue(identifyEvents(identifyPayloadAfter)));
+        });
+      });
+    },
+
+    user: (key?: string) => {
+      if (key === ID || key === 'id') {
+        return getUserProp(ID, analytics);
+      }
+      if (key === ANONID || key === 'anonId') {
+        return getUserProp(ANONID, analytics);
+      }
+      const user = analytics.getState('user');
+      if (!key) return user;
+      return user[key];
+    },
+
+    reset: (callback) => {
+      return new Promise((resolve) => {
+        store.dispatch(
+          store.enqueue(
+            resetEvents({
+              storage,
+              _callback: callback,
+              analytics,
+              _context: resolve
+            })
+          )
+        );
+      });
+    },
+
     track: async (
       eventName: string,
       payload: Record<string, any>,
@@ -317,23 +399,17 @@ export function Analytics(config: AnalyticsConfig) {
 
     dispatch: () => ({}),
 
-    abortEvent: (action: PayloadAction<AbortPayload>) => {
-      if (!action.payload.pluginEvent) throw new Error('pluginEvent passed is not defined');
-      const pluginReducers = getAbortedPluginReducers(store, analytics, new Set([action.payload.pluginEvent]));
-      store.replaceReducer(combineReducers({ ...getReducerStore(), ...pluginReducers }));
-      store.dispatch(clearPluginAbortEventsAction());
-    },
-
     enqueue: (action: QueueAction) => {
       return store.dispatch(store.enqueue(action));
     },
 
-    getState: (): RootState => {
+    getState: (stateKey?: string): RootState => {
       const state = store.getState();
-      return { ...state };
+      return stateKey ? { ...state }[stateKey] : { ...state };
     },
 
-    plugins: {} as ReturnType<typeof createPluginApi>
+    plugins: {} as ReturnType<typeof createPluginApi>,
+    storage
   };
 
   // create store
@@ -352,7 +428,8 @@ export function Analytics(config: AnalyticsConfig) {
   const store = {
     ...baseStore,
     enqueue: (actions) => {
-      return abortSensitiveQueue(store as any, analytics)(actions);
+      resetAbortedEvents();
+      return deleteSensitiveQueue(store as any, analytics)(actions);
     }
   };
 
