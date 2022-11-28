@@ -5,14 +5,15 @@ import { EVENTS } from '../utils';
 import { ANONID } from '../utils/utility';
 import { remove } from '../utils/storage';
 import { tempKey } from '../user/user';
+import { v4 } from 'uuid';
 
 export interface IdentifyPayload {
   userId: string;
   traits: Record<string, unknown>;
-  analytics: AnalyticsInstance;
-  storage: any;
+  analytics?: AnalyticsInstance;
+  storage?: any;
   anonymousId: string;
-  options: Record<string, any>;
+  options?: Record<string, any>;
   _callback?: Function;
   _context?: Function[] | Function;
 }
@@ -55,7 +56,11 @@ const identifySlice = createSlice({
       const { setItem, getItem } = action.payload.storage;
       const { userId, traits } = action.payload;
       if (!getItem(ANON_ID)) {
-        setItem(ANON_ID, crypto.randomUUID());
+        if (typeof window !== 'undefined') {
+          setItem(ANON_ID, v4());
+        } else {
+          setItem(ANON_ID, v4());
+        }
       }
 
       const currentTraits = getItem(USER_TRAITS) || {};
@@ -96,5 +101,10 @@ export const identifyEvents = (payload: IdentifyPayload = {} as IdentifyPayload)
 };
 
 export const resetEvents = (payload: ResetPayload) => {
-  return [resetStartAction(payload), resetAction(payload), resetEndAction(payload)];
+  const { _context, _callback, ...remainingPayloadProperties } = payload;
+  return [
+    resetStartAction(payload),
+    resetAction(payload),
+    { ...resetEndAction(remainingPayloadProperties), _context, _callback }
+  ];
 };

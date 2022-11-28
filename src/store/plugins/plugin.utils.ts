@@ -46,7 +46,6 @@ export function abort(abortWasCalled: { value: boolean }) {
 export function remove(removeWasCalled: { value: boolean }) {
   return <T extends keyof typeof EVENTS>(event: T, message: string) => {
     removeWasCalled.value = true;
-    console.log(removeWasCalled, 'set');
     return {
       remove: event,
       message
@@ -54,7 +53,6 @@ export function remove(removeWasCalled: { value: boolean }) {
   };
 }
 
-export const clearPluginAbortEventsAction = createAction('clearAbortableEvents');
 export const enablePluginAction = createAction(EVENTS.enablePlugin);
 export const disabledPluginAction = createAction(EVENTS.disablePlugin);
 export const resetPluginAction = createAction(EVENTS.reset);

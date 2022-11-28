@@ -5,6 +5,7 @@ import queueReducer from './queue';
 import trackReducer from './track';
 import identifyReducer from './identity';
 import storageReducer from './storage';
+import userReducer from './user';
 
 export const readyAction = createAction(EVENTS.ready);
 
@@ -24,14 +25,14 @@ export const coreReducers = {
   ready: readyReducer,
   identify: identifyReducer,
   storage: storageReducer,
+  user: userReducer,
   lastAction: (state, action) => (state = action)
 };
 
-export const CORE_REDUCER_KEYS = Object.keys(coreReducers)
-.reduce((keyMap, key) => {
+export const CORE_REDUCER_KEYS = Object.keys(coreReducers).reduce((keyMap, key) => {
   keyMap[key] = true;
   return keyMap;
-}, {} as Record<string, boolean> );
+}, {} as Record<string, boolean>);
 
 export let reducerStore = {
   ...coreReducers
@@ -40,7 +41,6 @@ export let reducerStore = {
 export function updateReducerStore(reducers) {
   reducerStore = reducers;
 }
-
 
 export function getReducerStore() {
   return reducerStore;

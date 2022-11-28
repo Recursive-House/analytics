@@ -1,9 +1,9 @@
 import { Action, CaseReducer, combineReducers, EnhancedStore } from '@reduxjs/toolkit';
 import { AnalyticsInstance } from 'src/api';
 import { abortAction } from '../plugins/queueProcessor';
-import { clearPluginAbortEventsAction, createAllPluginReducers, getPluginMethods } from './plugins';
+import { createAllPluginReducers, getPluginMethods } from './plugins';
 import { enqueue, QueueAction } from './queue';
-import { CORE_REDUCER_KEYS, getReducerStore } from './reducers';
+import { getReducerStore } from './reducers';
 import { getAllRemovedEvents } from './store';
 
 export function getAbortedReducers<S, AS extends Action>(collectedAbortedEvents: Set<string>) {

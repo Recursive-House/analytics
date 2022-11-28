@@ -33,13 +33,14 @@ const getDynConf = (target) => ({
 
   resolve: {
     extensions: [".js", ".ts"],
+    fallback: { "crypto": false },
   },
   externals:
-   [
-    nodeExternals({
-      importType: target === "esm" ? "module" : target,
-    }),
-  ],
+    [
+      nodeExternals({
+        importType: target === "esm" ? "module" : target,
+      }),
+    ],
 });
 
 const entry = path.resolve(__dirname, "src/index.ts");

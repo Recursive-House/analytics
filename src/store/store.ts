@@ -51,7 +51,6 @@ export const getRemovedEvents = (event: keyof typeof EVENTS | string) => {
 
 export const setRemovedEvents = (event: keyof typeof EVENTS | string, value: boolean) => {
   removedEventsStore[event] = value;
-  console.log('event', removedEventsStore);
   return value;
 };
 

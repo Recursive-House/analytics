@@ -9,7 +9,6 @@ import {
   EnhancedStore
 } from '@reduxjs/toolkit';
 import {
-  clearPluginAbortEventsAction,
   createAllPluginReducers,
   createInitializePluginType,
   createReadyPluginType,
@@ -34,17 +33,19 @@ import {
   disabledPluginAction,
   identifyEvents,
   resetEvents,
-  resetAbortedEvents
+  resetAbortedEvents,
 } from './store';
 import { CORE_LIFECYLCE_EVENTS, EVENTS } from './utils/core.utils';
-import { deleteSensitiveQueue, getDeletedPluginReducers } from './store/queue.utils';
+import { deleteSensitiveQueue } from './store/queue.utils';
 import { watch } from './utils/context.utils';
 import { getPageData } from './store/page/page.utils';
 import { pageEvents } from './store/page/page';
-import { getUserPropFunc, tempKey } from './user/user';
+import { getPersistedUserData, getUserPropFunc, tempKey } from './user/user';
 import { isObject } from './utils/analytics.utils';
 import { ID } from './utils/constants';
 import { ANONID } from './utils/utility';
+import { paramsParse } from './utils/params';
+import { uuid } from './utils/uuid';
 
 export interface AnalyticsInstance {
   track: (
@@ -80,6 +81,9 @@ export interface AnalyticsConfig {
     getItem: Function;
     setItem: Function;
     removeItem: Function;
+  };
+  initialUser?: {
+    traits: any;
   };
 }
 
@@ -190,10 +194,11 @@ const createPluginApi = (
 
 // TODO: handle dashed naming for plugins
 // TODO: setup plugin methods
-// TODO: params
-// TODO: reset events - needs the identity and storage feature feature
+// TODO: setup user
+// TODO: storage events - DONE
+// TODO: params - DONE
+// TODO: reset events - needs the identity and storage feature feature - DONE
 // TODO: identify events - DONE
-// TODO: storage events
 // TODO: page events -  DONE
 // TODO: once lifecycle call - DONE
 // TODO: turn queue on or off if online or offline - DONE
@@ -433,6 +438,20 @@ export function Analytics(config: AnalyticsConfig) {
     }
   };
 
+  const params = paramsParse();
+
+  const initialUser = config.initialUser || {};
+
+  const persistedUser = getPersistedUserData(storage);
+  const visitorInfo = {
+    ...persistedUser,
+    ...initialUser,
+    ...(!params.an_uid ? {} : { userId: params.an_uid }),
+    ...(!params.an_aid ? {} : { anonymousId: params.an_aid })
+  };
+
+  visitorInfo.anonymousId = visitorInfo.anonymousId ? uuid() : visitorInfo.anonymousId;
+
   const plugins = config.plugins || [];
   analytics.plugins = createPluginApi(store, analytics);
 
@@ -457,8 +476,10 @@ export function Analytics(config: AnalyticsConfig) {
 
   updateReducerStore(reducers);
   // add plugin reducers after processing
+
   store.replaceReducer(combineReducers(getReducerStore()));
 
+  analytics.enqueue(identifyEvents({...visitorInfo, storage }));
   analytics.enqueue(initializeEvents());
   analytics.enqueue(readyAction());
 
