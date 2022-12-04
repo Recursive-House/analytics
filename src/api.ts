@@ -200,7 +200,7 @@ const createPluginApi = (
 
 // TODO: all remaning unit tests
 // TODO: handle dashed naming for plugins
-// TODO: setup plugin methods
+// TODO: setup plugin methods - DONE
 // TODO: setup user - DONE
 // TODO: storage events - DONE
 // TODO: params - DONE

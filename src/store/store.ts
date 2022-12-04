@@ -1,9 +1,23 @@
 import { Action, CaseReducer, createAction, PayloadAction } from '@reduxjs/toolkit';
 import { AnalyticsInstance } from '../api';
-import { CORE_EVENTS, EVENTS } from '../utils';
-import { identify, identifyStartAction, identifyEndAction, resetStartAction, resetAction, resetEndAction } from './identity';
+import { EVENTS } from '../utils';
+import {
+  identify,
+  identifyStartAction,
+  identifyEndAction,
+  resetStartAction,
+  resetAction,
+  resetEndAction
+} from './identity';
+import { page, pageStartAction } from './page/page';
 import { coreReducers } from './reducers';
-import { setItemStartAction } from './storage';
+import {
+  removeItem,
+  removeItemStartAction,
+  setItem,
+  setItemEndAction,
+  setItemStartAction
+} from './storage';
 import { track, trackEndAction, trackStartAction } from './track';
 
 export const initializeStartAction = createAction<AnalyticsInstance>(EVENTS.initializeStart);
@@ -29,7 +43,18 @@ export const coreActions = {
   [EVENTS.identifyEnd]: identifyEndAction,
   [EVENTS.resetStart]: resetStartAction,
   [EVENTS.reset]: resetAction,
-  [EVENTS.resetEnd]: resetEndAction
+  [EVENTS.resetEnd]: resetEndAction,
+  [EVENTS.pageStart]: pageStartAction,
+  [EVENTS.page]: page,
+  [EVENTS.pageEnd]: pageStartAction,
+  [EVENTS.setItemStart]: setItemStartAction,
+  [EVENTS.setItem]: setItem,
+  [EVENTS.setItemEnd]: setItemEndAction,
+  [EVENTS.removeItemStart]: removeItemStartAction,
+  [EVENTS.removeItem]: removeItem,
+  [EVENTS.resetStart]: resetStartAction,
+  [EVENTS.reset]: resetAction,
+  [EVENTS.resetEnd]: resetEndAction,
 };
 
 export let abortedEventStore: Record<string, boolean> = {};
@@ -66,9 +91,8 @@ export const getAllRemovedEvents = () => {
 };
 
 export const resetRemovedEvents = () => {
-  return removedEventsStore = {};
+  return (removedEventsStore = {});
 };
-
 
 export interface StoreExtension {
   enqueue: (
