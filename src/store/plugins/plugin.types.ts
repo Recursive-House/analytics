@@ -14,6 +14,7 @@ export interface PluginState {
   config: Config;
   bootstrap?: ({ instance, config, payload }: { instance: AnalyticsInstance; config: Config; payload: Plugin }) => void;
   loaded: (loaded: Config) => any;
+  methods: Record<string, Function>;
 }
 
 export interface PluginProcessedState extends Omit<PluginState, 'initialize' | 'loaded'> {

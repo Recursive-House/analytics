@@ -33,7 +33,7 @@ import {
   disabledPluginAction,
   identifyEvents,
   resetEvents,
-  resetAbortedEvents,
+  resetAbortedEvents
 } from './store';
 import { CORE_LIFECYLCE_EVENTS, EVENTS } from './utils/core.utils';
 import { deleteSensitiveQueue } from './store/queue.utils';
@@ -43,7 +43,7 @@ import { pageEvents } from './store/page/page';
 import { getPersistedUserData, getUserPropFunc, tempKey } from './user/user';
 import { isObject } from './utils/analytics.utils';
 import { ID } from './utils/constants';
-import { ANONID } from './utils/utility';
+import { ANONID, preparePluginsMethods } from './utils/utility';
 import { paramsParse } from './utils/params';
 import { uuid } from './utils/uuid';
 
@@ -171,13 +171,16 @@ const createPluginApi = (
     addPlugins: (plugin: Plugin) => {
       const pluginReducer = createPluginReducers(analytics, plugin);
 
+      const preparedPlugin = { ...plugin, ...preparePluginsMethods(plugin, analytics) };
+      delete preparedPlugin.methods;
+
       analytics.enqueue({
         type: createRegisterPluginType(plugin.name),
-        payload: { plugin, instance: store }
+        payload: { plugin: preparedPlugin, instance: store }
       });
+
       const reducers = { ...getReducerStore(), [plugin.name]: pluginReducer };
 
-      // console.ll
       updateReducerStore(reducers);
 
       // add plugin reducers after processing
@@ -188,13 +191,17 @@ const createPluginApi = (
       store.enqueue({
         type: createReadyPluginType(plugin.name)
       });
+    },
+    get plugin() {
+      return store.getState().plugin;
     }
   };
 };
 
+// TODO: all remaning unit tests
 // TODO: handle dashed naming for plugins
 // TODO: setup plugin methods
-// TODO: setup user
+// TODO: setup user - DONE
 // TODO: storage events - DONE
 // TODO: params - DONE
 // TODO: reset events - needs the identity and storage feature feature - DONE
@@ -479,7 +486,7 @@ export function Analytics(config: AnalyticsConfig) {
 
   store.replaceReducer(combineReducers(getReducerStore()));
 
-  analytics.enqueue(identifyEvents({...visitorInfo, storage }));
+  analytics.enqueue(identifyEvents({ ...visitorInfo, storage }));
   analytics.enqueue(initializeEvents());
   analytics.enqueue(readyAction());
 

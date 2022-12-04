@@ -1,6 +1,7 @@
 import { Action, CaseReducer, createAction, PayloadAction } from '@reduxjs/toolkit';
 import { AnalyticsInstance } from '../api';
 import { CORE_EVENTS, EVENTS } from '../utils';
+import { identify, identifyStartAction, identifyEndAction, resetStartAction, resetAction, resetEndAction } from './identity';
 import { coreReducers } from './reducers';
 import { setItemStartAction } from './storage';
 import { track, trackEndAction, trackStartAction } from './track';
@@ -16,13 +17,19 @@ export const initializeEvents = (payload?) => [
 ];
 
 export const coreActions = {
-  [EVENTS.trackStart]: trackStartAction,
-  [EVENTS.track]: track,
-  [EVENTS.trackEnd]: trackEndAction,
   [EVENTS.initializeStart]: initializeStartAction,
   [EVENTS.initialize]: initializeAction,
   [EVENTS.initializeEnd]: initializeEndAction,
-  [EVENTS.setItemStart]: setItemStartAction
+  [EVENTS.trackStart]: trackStartAction,
+  [EVENTS.track]: track,
+  [EVENTS.trackEnd]: trackEndAction,
+  [EVENTS.setItemStart]: setItemStartAction,
+  [EVENTS.identifyStart]: identifyStartAction,
+  [EVENTS.identify]: identify,
+  [EVENTS.identifyEnd]: identifyEndAction,
+  [EVENTS.resetStart]: resetStartAction,
+  [EVENTS.reset]: resetAction,
+  [EVENTS.resetEnd]: resetEndAction
 };
 
 export let abortedEventStore: Record<string, boolean> = {};
