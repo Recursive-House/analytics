@@ -1,7 +1,5 @@
 import { watch } from './context.utils';
 
-
-
 describe('context.utils', () => {
   describe('watch', () => {
     it("it should provide online status when it's deemed online", () => {

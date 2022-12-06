@@ -29,24 +29,27 @@ function getSearchString(url?: string) {
   return typeof window !== 'undefined' && window.location.search.substring(1);
 }
 
+
+// I don't really understand this. Copied from the internet
+// probably should figure out how this really works soon.
 function getParamsAsObject(query: string) {
   let params = Object.create(null);
   let temp;
   const re = /([^&=]+)=?([^&]*)/g;
 
   while ((temp = re.exec(query))) {
-    var k = decodeUri(temp[1]);
-    var v = decodeUri(temp[2]);
-    if (k.substring(k.length - 2) === '[]') {
-      k = k.substring(0, k.length - 2);
-      (params[k] || (params[k] = [])).push(v);
+    var key = decodeUri(temp[1]);
+    var value = decodeUri(temp[2]);
+    if (key.substring(key.length - 2) === '[]') {
+      key = key.substring(0, key.length - 2);
+      (params[key] || (params[key] = [])).push(value);
     } else {
-      params[k] = v === '' ? true : v;
+      params[key] = value === '' ? true : value;
     }
   }
 
-  for (var prop in params) {
-    var arr = prop.split('[');
+  for (let prop in params) {
+    let arr = prop.split('[');
     if (arr.length > 1) {
       assign(
         params,

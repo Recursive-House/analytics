@@ -6,20 +6,20 @@ import { enqueue, QueueAction } from './queue';
 import { getReducerStore } from './reducers';
 import { getAllRemovedEvents } from './store';
 
-export function getAbortedReducers<S, AS extends Action>(collectedAbortedEvents: Set<string>) {
+export function getDeletedReducers<S, AS extends Action>(collectedAbortedEvents: Set<string>) {
   const reducers = { ...getPluginMethods() };
 
   return Object.keys(reducers).reduce(
     (result, key) => {
       const reducer = { ...reducers[key] };
 
-      Array.from(collectedAbortedEvents).forEach((abortedEvent) => {
+      result[key] = Array.from(collectedAbortedEvents).reduce((abortedEvent) => {
         if (!reducer[abortedEvent]) {
           new Error(`${abortedEvent} does not exist in ${key} reducer`);
         }
         delete reducer[abortedEvent];
-      });
-      result[key] = reducer;
+        return reducer;
+      }, reducer);
       return result;
     },
     {} as {
@@ -33,14 +33,14 @@ export function getDeletedPluginReducers(
   analytics: AnalyticsInstance,
   collectedAbortedEvents: Set<string>
 ) {
-  const abortedReducersMap = getAbortedReducers(collectedAbortedEvents);
+  const deletedReducersMap = getDeletedReducers(collectedAbortedEvents);
   const analyticsState = store.getState();
-  const pluginStates = Object.keys(abortedReducersMap).reduce(
+  const pluginStates = Object.keys(deletedReducersMap).reduce(
     (allPluginStates, pluginName) => ((allPluginStates[pluginName] = analyticsState[pluginName]), allPluginStates),
     {}
   );
-  return Object.keys(abortedReducersMap).reduce((result, key) => {
-    result[key] = createAllPluginReducers({ ...abortedReducersMap[key], name: key }, analytics, pluginStates[key]);
+  return Object.keys(deletedReducersMap).reduce((result, key) => {
+    result[key] = createAllPluginReducers({ ...deletedReducersMap[key], name: key }, analytics, pluginStates[key]);
     return result;
   }, {});
 }
