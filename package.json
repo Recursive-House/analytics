@@ -1,6 +1,6 @@
 {
-  "name": "analytics",
-  "version": "1.0.0",
+  "name": "@recursive-house/analytics",
+  "version": "1.0.2",
   "description": "A lightweight, extensible analytics library.",
   "main": "index.ts",
   "browser": "./dist/library/browser/analytics.js",
